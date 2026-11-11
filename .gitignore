@@ -1,0 +1,18 @@
+# Build do Roblox
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+
+# Dependências Wally
+/Packages
+/ServerPackages
+/DevPackages
+
+# Ferramentas
+/.vscode
+sourcemap.json
+
+# Sistema
+.DS_Store
+Thumbs.db

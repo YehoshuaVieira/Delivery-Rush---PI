@@ -1,0 +1,4748 @@
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
+	<Meta name="ExplicitAutoJoints">true</Meta>
+	<External>null</External>
+	<External>nil</External>
+	<Item class="Folder" referent="RBXE3F249B254604F4AA2CC330396560E21">
+		<Properties>
+			<Content name="ExplorerIconContent">
+				<null></null>
+			</Content>
+			<Color3 name="IconTint">
+				<R>0</R>
+				<G>0</G>
+				<B>0</B>
+			</Color3>
+			<BinaryString name="AttributesSerialize"></BinaryString>
+			<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+			<bool name="DefinesCapabilities">false</bool>
+			<string name="Name">_Export</string>
+			<BinaryString name="SerializedOverrides"></BinaryString>
+			<int64 name="SourceAssetId">-1</int64>
+			<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+		</Properties>
+		<Item class="Folder" referent="RBX252561B0B78E4CBD9E7F2560A2A983A2">
+			<Properties>
+				<Content name="ExplorerIconContent">
+					<null></null>
+				</Content>
+				<Color3 name="IconTint">
+					<R>0</R>
+					<G>0</G>
+					<B>0</B>
+				</Color3>
+				<BinaryString name="AttributesSerialize"></BinaryString>
+				<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+				<bool name="DefinesCapabilities">false</bool>
+				<string name="Name">_Export</string>
+				<BinaryString name="SerializedOverrides"></BinaryString>
+				<int64 name="SourceAssetId">-1</int64>
+				<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+			</Properties>
+		</Item>
+		<Item class="ScreenGui" referent="RBXA3E149E867F34C918D7E6DED8E7CD6E2">
+			<Properties>
+				<bool name="ClipToDeviceSafeArea">true</bool>
+				<int name="DisplayOrder">8</int>
+				<token name="SafeAreaCompatibility">1</token>
+				<token name="ScreenInsets">1</token>
+				<bool name="Enabled">false</bool>
+				<token name="InputSinkEnabled">0</token>
+				<bool name="ResetOnSpawn">false</bool>
+				<token name="ZIndexBehavior">1</token>
+				<bool name="AutoLocalize">true</bool>
+				<Ref name="RootLocalizationTable">null</Ref>
+				<token name="SelectionBehaviorDown">0</token>
+				<token name="SelectionBehaviorLeft">0</token>
+				<token name="SelectionBehaviorRight">0</token>
+				<token name="SelectionBehaviorUp">0</token>
+				<bool name="SelectionGroup">false</bool>
+				<BinaryString name="AttributesSerialize"></BinaryString>
+				<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+				<bool name="DefinesCapabilities">false</bool>
+				<string name="Name">AbilityGui</string>
+				<BinaryString name="SerializedOverrides"></BinaryString>
+				<int64 name="SourceAssetId">-1</int64>
+				<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+			</Properties>
+			<Item class="LocalScript" referent="RBX428D9B5BC02245469B5530F469F16FD0">
+				<Properties>
+					<ProtectedString name="Source"><![CDATA[-- Escolha de habilidade da Sobrevivência: 3 cartas a cada 10 entregas (inspirado em Hades / Vampire Survivors).
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local gui = script.Parent
+
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local AbilityConfig = require(Modules:WaitForChild("AbilityConfig"))
+local UI = require(Modules:WaitForChild("UIKit"))
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+
+local C, F, new = UI.Color, UI.Font, UI.new
+local MUTED = UI.Muted
+local TOUCH = UI.IsTouch()
+local CARD_H = 352
+local SHORT_CARD_H = 240 -- tela larga e baixa (celular deitado): cartas lado a lado, mais baixas
+
+-- string.upper não mexe em letras acentuadas (UTF-8)
+local ACCENTS = { ["á"] = "Á", ["à"] = "À", ["â"] = "Â", ["ã"] = "Ã", ["é"] = "É", ["ê"] = "Ê", ["í"] = "Í", ["ó"] = "Ó", ["ô"] = "Ô", ["õ"] = "Õ", ["ú"] = "Ú", ["ç"] = "Ç" }
+local function caps(s: string): string
+	return (string.upper(s):gsub("[\195][\128-\191]", ACCENTS))
+end
+
+for _, child in ipairs(gui:GetChildren()) do
+	if child:IsA("GuiObject") or child:IsA("UIScale") then
+		child:Destroy()
+	end
+end
+local uiScale = new("UIScale", { Parent = gui })
+
+local dim = new("Frame", {
+	Name = "Dim",
+	BackgroundColor3 = C.Panel,
+	BackgroundTransparency = 0.3,
+	BorderSizePixel = 0,
+	Size = UDim2.fromScale(1, 1),
+	ZIndex = 0,
+	Parent = gui,
+})
+
+local column = new("Frame", {
+	Name = "Column",
+	BackgroundTransparency = 1,
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromOffset(860, 0),
+	AutomaticSize = Enum.AutomaticSize.Y,
+	Parent = gui,
+})
+new("UIListLayout", {
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	Padding = UDim.new(0, 10),
+	Parent = column,
+})
+local kicker = UI.Text({
+	Font = F.Title,
+	TextSize = 16,
+	Color = C.Accent,
+	XAlign = Enum.TextXAlignment.Center,
+	Size = UDim2.new(1, 0, 0, 20),
+	LayoutOrder = 1,
+	Parent = column,
+})
+UI.Text({
+	Text = "ESCOLHA UMA HABILIDADE",
+	Font = F.Title,
+	TextSize = 34,
+	XAlign = Enum.TextXAlignment.Center,
+	Size = UDim2.new(1, 0, 0, 40),
+	LayoutOrder = 2,
+	Parent = column,
+})
+local subtitle = UI.Text({
+	Text = "Ela vale até o fim da partida. O próximo pedido só começa depois da escolha.",
+	Font = F.Body,
+	TextSize = 16,
+	Transparency = MUTED,
+	XAlign = Enum.TextXAlignment.Center,
+	Wrapped = true,
+	Size = UDim2.new(1, 0, 0, 22),
+	LayoutOrder = 3,
+	Parent = column,
+})
+local timerBar = new("Frame", {
+	Name = "Timer",
+	BackgroundColor3 = C.Text,
+	BackgroundTransparency = 0.85,
+	BorderSizePixel = 0,
+	Size = UDim2.fromOffset(240, 4),
+	LayoutOrder = 4,
+	Parent = column,
+})
+new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = timerBar })
+local timerFill = new("Frame", {
+	BackgroundColor3 = C.Accent,
+	BorderSizePixel = 0,
+	Size = UDim2.fromScale(1, 1),
+	Parent = timerBar,
+})
+new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = timerFill })
+new("Frame", { BackgroundTransparency = 1, Size = UDim2.fromOffset(1, 8), LayoutOrder = 5, Parent = column })
+
+local row = new("Frame", {
+	Name = "Cards",
+	BackgroundTransparency = 1,
+	Size = UDim2.new(1, 0, 0, CARD_H),
+	LayoutOrder = 6,
+	Parent = column,
+})
+local rowLayout = new("UIListLayout", {
+	FillDirection = Enum.FillDirection.Horizontal,
+	HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	VerticalAlignment = Enum.VerticalAlignment.Center,
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	Padding = UDim.new(0, 16),
+	Parent = row,
+})
+
+local KIND_TEXT = { Passiva = "PASSIVA", ["Automática"] = "AUTOMÁTICA", Ativa = "ATIVA" }
+
+local cards = {}
+local current = nil -- oferta aberta: { Ids, Deadline, Timeout }
+local cardWidth, listMode, shortMode = 260, false, false
+
+local function layout()
+	local vp = Workspace.CurrentCamera.ViewportSize
+	uiScale.Scale = UI.ScaleFor(vp, TOUCH)
+	local w = vp.X / uiScale.Scale
+	local h = vp.Y / uiScale.Scale
+	local available = math.min(860, w - 32)
+	column.Size = UDim2.fromOffset(available, 0)
+	cardWidth = math.min(260, math.floor((available - 32) / 3))
+	-- tela estreita: cartas viram faixas horizontais, uma embaixo da outra; tela baixa: cartas compactas
+	listMode = cardWidth < 190
+	shortMode = not listMode and h < 560
+	subtitle.Visible = h >= 560
+	rowLayout.FillDirection = listMode and Enum.FillDirection.Vertical or Enum.FillDirection.Horizontal
+	rowLayout.Padding = UDim.new(0, listMode and 10 or 16)
+	local count = math.max(#cards, 1)
+	row.Size = UDim2.new(1, 0, 0, listMode and (count * 124 + (count - 1) * 10) or (shortMode and SHORT_CARD_H or CARD_H))
+	for _, card in ipairs(cards) do
+		card.Layout()
+	end
+end
+Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(layout)
+
+local function pick(id: string)
+	if not current then
+		return
+	end
+	current = nil
+	Remotes.RequestPickAbility:FireServer(id)
+	for _, card in ipairs(cards) do
+		if card.Id == id then
+			card.Edge.Color = C.Accent
+			card.Edge.Transparency = 0
+			card.Edge.Thickness = 3
+			UI.Show(card.Holder, 1.5)
+		else
+			UI.Hide(card.Holder)
+		end
+	end
+	task.delay(0.55, function()
+		if not current then
+			gui.Enabled = false
+			player:SetAttribute("PickingAbility", nil)
+		end
+	end)
+end
+
+local function makeCard(index: number, ability)
+	local rarity = AbilityConfig.Rarity[ability.Rarity]
+	local holder, face = UI.Panel({
+		Name = "Card" .. index,
+		Size = UDim2.fromOffset(260, CARD_H),
+		LayoutOrder = index,
+		Parent = row,
+	})
+	local edge = face:FindFirstChild("Edge")
+	-- faixa da raridade no topo
+	local band = new("Frame", {
+		Name = "Band",
+		BackgroundColor3 = rarity.Color,
+		BorderSizePixel = 0,
+		Size = UDim2.new(1, 0, 0, 4),
+		ZIndex = 2,
+		Parent = face,
+	})
+	new("UICorner", { CornerRadius = UDim.new(0, 2), Parent = band })
+	local disc = new("Frame", {
+		Name = "Disc",
+		BackgroundColor3 = C.Raised,
+		ZIndex = 2,
+		Parent = face,
+	})
+	new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = disc })
+	new("UIStroke", { Color = rarity.Color, Thickness = 2, Transparency = 0.2, Parent = disc })
+	local icon = UI.IconImage(ability.Icon, 36, rarity.Color, {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		ZIndex = 3,
+		Parent = disc,
+	})
+	local rarityText = UI.Text({
+		Text = caps(ability.Rarity),
+		Font = F.Title,
+		TextSize = 14,
+		Color = rarity.Color,
+		Parent = face,
+	})
+	local name = UI.Text({
+		Text = ability.Name,
+		Font = F.Title,
+		TextSize = 22,
+		Wrapped = true,
+		YAlign = Enum.TextYAlignment.Top,
+		Parent = face,
+	})
+	local tagline = UI.Text({
+		Text = ability.Tagline,
+		Font = F.Body,
+		TextSize = 15,
+		Transparency = MUTED,
+		Parent = face,
+	})
+	local description = UI.Text({
+		Text = ability.Description,
+		Font = F.Body,
+		TextSize = 16,
+		Transparency = 0.08,
+		Wrapped = true,
+		YAlign = Enum.TextYAlignment.Top,
+		Parent = face,
+	})
+	local kindText = KIND_TEXT[ability.Kind] or caps(ability.Kind)
+	local input = UI.InputKind()
+	if ability.Key and input == "Keyboard" then
+		kindText ..= "  •  TECLA " .. caps(ability.Key)
+	elseif ability.Pad and input == "Gamepad" then
+		kindText ..= "  •  BOTÃO " .. ability.Pad
+	end
+	local kind = UI.Text({
+		Text = kindText,
+		Font = F.Title,
+		TextSize = 13,
+		Transparency = MUTED,
+		Parent = face,
+	})
+	local keycap = UI.Keycap(tostring(index), { Height = 24, Width = 24, TextSize = 15, Gamepad = AbilityConfig.PadPick[index], Parent = face })
+	local hit = UI.Hit(holder, face)
+	hit.Activated:Connect(function()
+		pick(ability.Id)
+	end)
+	hit.MouseEnter:Connect(function()
+		edge.Color = rarity.Color
+		edge.Transparency = 0.1
+	end)
+	hit.MouseLeave:Connect(function()
+		edge.Color = C.Text
+		edge.Transparency = 0.9
+	end)
+
+	local card = { Id = ability.Id, Holder = holder, Edge = edge }
+	function card.Layout()
+		if listMode then
+			holder.Size = UDim2.new(1, 0, 0, 124)
+			disc.Size = UDim2.fromOffset(56, 56)
+			disc.Position = UDim2.fromOffset(16, 16)
+			icon.Size = UDim2.fromOffset(30, 30)
+			rarityText.Position = UDim2.fromOffset(86, 12)
+			rarityText.Size = UDim2.new(1, -140, 0, 18)
+			name.Position = UDim2.fromOffset(86, 30)
+			name.Size = UDim2.new(1, -140, 0, 26)
+			name.TextWrapped = false
+			name.TextTruncate = Enum.TextTruncate.AtEnd
+			tagline.Visible = false
+			description.Position = UDim2.fromOffset(86, 58)
+			description.Size = UDim2.new(1, -100, 0, 56)
+			description.TextSize = 15
+			kind.Visible = false
+			if keycap then
+				keycap.AnchorPoint = Vector2.new(1, 0)
+				keycap.Position = UDim2.new(1, -14, 0, 14)
+			end
+		elseif shortMode then
+			holder.Size = UDim2.fromOffset(cardWidth, SHORT_CARD_H)
+			disc.Size = UDim2.fromOffset(52, 52)
+			disc.Position = UDim2.fromOffset(14, 16)
+			icon.Size = UDim2.fromOffset(28, 28)
+			rarityText.Position = UDim2.fromOffset(78, 22)
+			rarityText.Size = UDim2.new(1, -120, 0, 18)
+			kind.Visible = true
+			kind.Position = UDim2.fromOffset(78, 42)
+			kind.Size = UDim2.new(1, -92, 0, 18)
+			name.Position = UDim2.fromOffset(14, 80)
+			name.Size = UDim2.new(1, -28, 0, 48)
+			name.TextWrapped = true
+			name.TextTruncate = Enum.TextTruncate.None
+			tagline.Visible = false
+			description.Position = UDim2.fromOffset(14, 130)
+			description.Size = UDim2.new(1, -28, 0, 100)
+			description.TextSize = 15
+			if keycap then
+				keycap.AnchorPoint = Vector2.new(1, 0)
+				keycap.Position = UDim2.new(1, -12, 0, 12)
+			end
+		else
+			holder.Size = UDim2.fromOffset(cardWidth, CARD_H)
+			disc.Size = UDim2.fromOffset(68, 68)
+			disc.Position = UDim2.fromOffset(18, 24)
+			icon.Size = UDim2.fromOffset(36, 36)
+			rarityText.Position = UDim2.fromOffset(18, 104)
+			rarityText.Size = UDim2.new(1, -36, 0, 18)
+			name.Position = UDim2.fromOffset(18, 124)
+			name.Size = UDim2.new(1, -36, 0, 54)
+			name.TextWrapped = true
+			name.TextTruncate = Enum.TextTruncate.None
+			tagline.Visible = true
+			tagline.Position = UDim2.fromOffset(18, 180)
+			tagline.Size = UDim2.new(1, -36, 0, 20)
+			description.Position = UDim2.fromOffset(18, 208)
+			description.Size = UDim2.new(1, -36, 0, 100)
+			description.TextSize = 16
+			kind.Visible = true
+			kind.Position = UDim2.new(0, 18, 1, -32)
+			kind.Size = UDim2.new(1, -60, 0, 18)
+			if keycap then
+				keycap.AnchorPoint = Vector2.new(1, 1)
+				keycap.Position = UDim2.new(1, -14, 1, -14)
+			end
+		end
+	end
+	return card
+end
+
+local function open(data)
+	for _, card in ipairs(cards) do
+		card.Holder:Destroy()
+	end
+	table.clear(cards)
+	local ids = data and data.Ids or {}
+	for i, id in ipairs(ids) do
+		local ability = AbilityConfig.Get(id)
+		if ability then
+			table.insert(cards, makeCard(i, ability))
+		end
+	end
+	if #cards == 0 then
+		return
+	end
+	local timeout = data.Timeout or AbilityConfig.PickTimeout
+	current = { Ids = ids, Deadline = os.clock() + timeout, Timeout = timeout }
+	kicker.Text = string.format("%d ENTREGAS!", data.Milestone or 0)
+	player:SetAttribute("PickingAbility", true)
+	gui.Enabled = true
+	layout()
+	-- cartas "distribuídas" uma a uma
+	for i, card in ipairs(cards) do
+		card.Holder.Visible = false
+		task.delay(0.08 * (i - 1), function()
+			UI.Show(card.Holder, 1.3)
+		end)
+	end
+end
+
+local function close()
+	current = nil
+	gui.Enabled = false
+	player:SetAttribute("PickingAbility", nil)
+end
+
+Remotes.AbilityOffer.OnClientEvent:Connect(open)
+Remotes.SurvivalEnded.OnClientEvent:Connect(close)
+player:GetAttributeChangedSignal("GameMode"):Connect(function()
+	if player:GetAttribute("GameMode") ~= "Survival" then
+		close()
+	end
+end)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed or not current then
+		return
+	end
+	local index = ({ [Enum.KeyCode.One] = 1, [Enum.KeyCode.Two] = 2, [Enum.KeyCode.Three] = 3,
+		[Enum.KeyCode.KeypadOne] = 1, [Enum.KeyCode.KeypadTwo] = 2, [Enum.KeyCode.KeypadThree] = 3,
+		[Enum.KeyCode.ButtonX] = 1, [Enum.KeyCode.ButtonY] = 2, [Enum.KeyCode.ButtonB] = 3 })[input.KeyCode]
+	if index and cards[index] then
+		pick(cards[index].Id)
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	if current then
+		local left = math.max(0, current.Deadline - os.clock())
+		timerFill.Size = UDim2.fromScale(left / current.Timeout, 1)
+		timerFill.BackgroundColor3 = left < 6 and C.Amber or C.Accent
+	end
+end)
+
+layout()
+]]></ProtectedString>
+					<bool name="Disabled">false</bool>
+					<Content name="LinkedSource"><null></null></Content>
+					<token name="RunContext">0</token>
+					<string name="ScriptGuid">{E623ACBC-0450-4507-82C3-494CF2A48C87}</string>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+					<bool name="DefinesCapabilities">false</bool>
+					<string name="Name">AbilityController</string>
+					<BinaryString name="SerializedOverrides"></BinaryString>
+					<int64 name="SourceAssetId">-1</int64>
+					<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+				</Properties>
+			</Item>
+		</Item>
+		<Item class="ScreenGui" referent="RBX46EF67E794E44A66B29FADCB64C07193">
+			<Properties>
+				<bool name="ClipToDeviceSafeArea">true</bool>
+				<int name="DisplayOrder">5</int>
+				<token name="SafeAreaCompatibility">1</token>
+				<token name="ScreenInsets">2</token>
+				<bool name="Enabled">true</bool>
+				<token name="InputSinkEnabled">0</token>
+				<bool name="ResetOnSpawn">false</bool>
+				<token name="ZIndexBehavior">1</token>
+				<bool name="AutoLocalize">true</bool>
+				<Ref name="RootLocalizationTable">null</Ref>
+				<token name="SelectionBehaviorDown">0</token>
+				<token name="SelectionBehaviorLeft">0</token>
+				<token name="SelectionBehaviorRight">0</token>
+				<token name="SelectionBehaviorUp">0</token>
+				<bool name="SelectionGroup">false</bool>
+				<BinaryString name="AttributesSerialize"></BinaryString>
+				<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+				<bool name="DefinesCapabilities">false</bool>
+				<string name="Name">AreasGui</string>
+				<BinaryString name="SerializedOverrides"></BinaryString>
+				<int64 name="SourceAssetId">-1</int64>
+				<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+			</Properties>
+			<Item class="LocalScript" referent="RBX231C891E8E7141E7B142B7F7B63197FD">
+				<Properties>
+					<ProtectedString name="Source"><![CDATA[-- Janela de Bairros. Só envia a intenção de desbloquear; o ShopManager valida.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local gui = script.Parent
+
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local AreaConfig = require(Modules:WaitForChild("AreaConfig"))
+local Format = require(Modules:WaitForChild("Format"))
+local UI = require(Modules:WaitForChild("UIKit"))
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+
+local C, F, new = UI.Color, UI.Font, UI.new
+local MUTED = UI.Muted
+local TOUCH = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+for _, child in ipairs(gui:GetChildren()) do
+	if child:IsA("GuiObject") then
+		child:Destroy()
+	end
+end
+
+local uiScale = gui:FindFirstChildOfClass("UIScale") or new("UIScale", { Parent = gui })
+local function updateScale()
+	uiScale.Scale = UI.ScaleFor(Workspace.CurrentCamera.ViewportSize, TOUCH)
+end
+Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
+updateScale()
+
+local ROW_H = 60
+local areaCount = #AreaConfig.Areas
+
+local window, face = UI.Panel({
+	Name = "Window",
+	Size = UDim2.fromOffset(480, 114 + areaCount * (ROW_H + 8) + 34),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Radius = 16,
+	Visible = false,
+	Parent = gui,
+})
+
+UI.IconImage("mapa", 22, C.Accent, { Position = UDim2.fromOffset(22, 23), Parent = face })
+UI.Text({
+	Text = "BAIRROS",
+	Font = F.Title,
+	TextSize = 22,
+	Position = UDim2.fromOffset(54, 18),
+	Size = UDim2.fromOffset(200, 32),
+	Parent = face,
+})
+local closeHolder, closeFace = UI.Panel({
+	Name = "Close",
+	Size = UDim2.fromOffset(34, 34),
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -16, 0, 16),
+	Color = C.Raised,
+	Transparency = 0,
+	Shadow = false,
+	Stroke = false,
+	Radius = 9,
+	Parent = face,
+})
+closeHolder.ZIndex = 3
+UI.IconImage("xis", 13, C.Text, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Parent = closeFace })
+local closeButton = UI.Hit(closeHolder, closeFace)
+
+local moneyLabel = UI.Text({
+	Font = F.Number,
+	TextSize = 18,
+	XAlign = Enum.TextXAlignment.Right,
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -60, 0, 22),
+	Size = UDim2.fromOffset(160, 24),
+	Parent = face,
+})
+UI.Text({
+	Text = "Bairros mais caros pagam mais por entrega. Os pedidos só aparecem nos bairros liberados.",
+	Font = F.Body,
+	TextSize = 14,
+	Transparency = MUTED,
+	Wrapped = true,
+	Position = UDim2.fromOffset(22, 60),
+	Size = UDim2.new(1, -44, 0, 38),
+	Parent = face,
+})
+
+local list = new("Frame", {
+	Name = "List",
+	BackgroundTransparency = 1,
+	Position = UDim2.fromOffset(22, 108),
+	Size = UDim2.new(1, -44, 1, -142),
+	ZIndex = 2,
+	Parent = face,
+})
+new("UIListLayout", {
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	Padding = UDim.new(0, 8),
+	Parent = list,
+})
+
+local feedbackLabel = UI.Text({
+	Font = F.Text,
+	TextSize = 14,
+	XAlign = Enum.TextXAlignment.Center,
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 22, 1, -8),
+	Size = UDim2.new(1, -44, 0, 22),
+	Parent = face,
+})
+
+local cards = {}
+local busy = false
+local refresh
+
+local function tryUnlock(area)
+	local unlocked = AreaConfig.ParseUnlocked(player:GetAttribute("UnlockedAreas"))
+	if busy or unlocked[area.Id] then
+		return
+	end
+	busy = true
+	refresh()
+	local ok, result = pcall(function()
+		return Remotes.RequestUnlockArea:InvokeServer(area.Id)
+	end)
+	busy = false
+	if ok and type(result) == "table" then
+		feedbackLabel.Text = UI.StripEmoji(tostring(result.Message))
+		feedbackLabel.TextColor3 = result.Success and C.Accent or C.Red
+		if result.Success and cards[area.Id] then
+			UI.Show(cards[area.Id].Holder, 0.5)
+		end
+	else
+		feedbackLabel.Text = "Erro de conexão. Tente de novo."
+		feedbackLabel.TextColor3 = C.Red
+	end
+	refresh()
+end
+
+for _, area in ipairs(AreaConfig.Areas) do
+	local holder, cardFace = UI.Panel({
+		Name = "Area" .. area.Id,
+		Size = UDim2.new(1, 0, 0, ROW_H),
+		Color = C.Raised,
+		Transparency = 0,
+		Shadow = false,
+		Stroke = false,
+		Radius = 10,
+		LayoutOrder = area.Id,
+		Parent = list,
+	})
+	local bar = new("Frame", {
+		Name = "ColorBar",
+		BackgroundColor3 = area.Color,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(12, 12),
+		Size = UDim2.new(0, 5, 1, -24),
+		ZIndex = 2,
+		Parent = cardFace,
+	})
+	new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = bar })
+	UI.Text({
+		Text = area.Name,
+		Font = F.Number,
+		TextSize = 17,
+		Position = UDim2.fromOffset(28, 9),
+		Size = UDim2.new(1, -210, 0, 22),
+		Truncate = true,
+		Parent = cardFace,
+	})
+	UI.Text({
+		Text = "paga " .. UI.Multiplier(area.PayMultiplier) .. " por entrega",
+		Font = F.Body,
+		TextSize = 13,
+		Transparency = MUTED,
+		Position = UDim2.fromOffset(28, 31),
+		Size = UDim2.new(1, -210, 0, 18),
+		Parent = cardFace,
+	})
+	local actionHolder, actionFace = UI.Panel({
+		Name = "Action",
+		Size = UDim2.fromOffset(164, 38),
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -11, 0.5, 0),
+		Color = C.Accent,
+		Transparency = 0,
+		Shadow = false,
+		Stroke = false,
+		Radius = 8,
+		Parent = cardFace,
+	})
+	actionHolder.ZIndex = 3
+	local row = new("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 2, Parent = actionFace })
+	new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 6),
+		Parent = row,
+	})
+	local actionIcon = UI.IconImage("check", 14, C.Accent, { LayoutOrder = 1, Parent = row })
+	local actionText = UI.Text({
+		Font = F.Title,
+		TextSize = 14,
+		Size = UDim2.fromOffset(0, 22),
+		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = 2,
+		Parent = row,
+	})
+	local hit = UI.Hit(actionHolder, actionFace)
+	hit.Activated:Connect(function()
+		tryUnlock(area)
+	end)
+	cards[area.Id] = { Holder = holder, Face = actionFace, Icon = actionIcon, Text = actionText }
+end
+
+refresh = function()
+	local unlocked = AreaConfig.ParseUnlocked(player:GetAttribute("UnlockedAreas"))
+	local money = player:GetAttribute("Money") or 0
+	moneyLabel.Text = Format.Money(money)
+	for id, card in pairs(cards) do
+		local area = AreaConfig.Get(id)
+		if unlocked[id] then
+			card.Face.BackgroundTransparency = 1
+			card.Icon.Visible = true
+			card.Text.Text = "LIBERADO"
+			card.Text.TextColor3 = C.Accent
+			card.Text.TextTransparency = 0
+		elseif AreaConfig.RequireSequentialUnlock and not unlocked[id - 1] then
+			card.Face.BackgroundColor3 = C.Panel
+			card.Face.BackgroundTransparency = 0
+			card.Icon.Visible = false
+			card.Text.Text = Format.Money(area.Cost)
+			card.Text.TextColor3 = C.Text
+			card.Text.TextTransparency = MUTED
+		else
+			local canAfford = money >= area.Cost
+			card.Face.BackgroundColor3 = canAfford and C.Accent or C.Panel
+			card.Face.BackgroundTransparency = 0
+			card.Icon.Visible = false
+			card.Text.Text = busy and "..." or ("LIBERAR " .. Format.Money(area.Cost))
+			card.Text.TextColor3 = canAfford and C.AccentInk or C.Text
+			card.Text.TextTransparency = canAfford and 0 or MUTED
+		end
+	end
+end
+
+closeButton.Activated:Connect(function()
+	window.Visible = false
+end)
+
+window:GetPropertyChangedSignal("Visible"):Connect(function()
+	if window.Visible and not window:GetAttribute("Hiding") then
+		feedbackLabel.Text = ""
+		refresh()
+		UI.Show(window, 0.4)
+	end
+end)
+
+player:GetAttributeChangedSignal("Money"):Connect(refresh)
+player:GetAttributeChangedSignal("UnlockedAreas"):Connect(refresh)
+refresh()
+]]></ProtectedString>
+					<bool name="Disabled">false</bool>
+					<Content name="LinkedSource"><null></null></Content>
+					<token name="RunContext">0</token>
+					<string name="ScriptGuid">{86458E22-0E9F-423A-8A89-1BC41EC7AF45}</string>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+					<bool name="DefinesCapabilities">false</bool>
+					<string name="Name">AreasController</string>
+					<BinaryString name="SerializedOverrides"></BinaryString>
+					<int64 name="SourceAssetId">-1</int64>
+					<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+				</Properties>
+			</Item>
+			<Item class="UIScale" referent="RBXED441E657C074487B15A95B45EA85B14">
+				<Properties>
+					<float name="Scale">1</float>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+					<bool name="DefinesCapabilities">false</bool>
+					<string name="Name">UIScale</string>
+					<BinaryString name="SerializedOverrides"></BinaryString>
+					<int64 name="SourceAssetId">-1</int64>
+					<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+				</Properties>
+			</Item>
+		</Item>
+		<Item class="ScreenGui" referent="RBX91EB96DC72644B889A584A748E97F9EA">
+			<Properties>
+				<bool name="ClipToDeviceSafeArea">true</bool>
+				<int name="DisplayOrder">0</int>
+				<token name="SafeAreaCompatibility">1</token>
+				<token name="ScreenInsets">2</token>
+				<bool name="Enabled">true</bool>
+				<token name="InputSinkEnabled">0</token>
+				<bool name="ResetOnSpawn">false</bool>
+				<token name="ZIndexBehavior">1</token>
+				<bool name="AutoLocalize">true</bool>
+				<Ref name="RootLocalizationTable">null</Ref>
+				<token name="SelectionBehaviorDown">0</token>
+				<token name="SelectionBehaviorLeft">0</token>
+				<token name="SelectionBehaviorRight">0</token>
+				<token name="SelectionBehaviorUp">0</token>
+				<bool name="SelectionGroup">false</bool>
+				<BinaryString name="AttributesSerialize"></BinaryString>
+				<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+				<bool name="DefinesCapabilities">false</bool>
+				<string name="Name">HUD</string>
+				<BinaryString name="SerializedOverrides"></BinaryString>
+				<int64 name="SourceAssetId">-1</int64>
+				<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+			</Properties>
+			<Item class="LocalScript" referent="RBX286AA8BACE044083A3005FD85D199D3B">
+				<Properties>
+					<ProtectedString name="Source"><![CDATA[-- HUD montado em código com o UIKit. Só exibe dados e envia intenções; o dinheiro é decidido no servidor.
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local gui = script.Parent
+
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local GameConfig = require(Modules:WaitForChild("GameConfig"))
+local AreaConfig = require(Modules:WaitForChild("AreaConfig"))
+local PaymentCalculator = require(Modules:WaitForChild("PaymentCalculator"))
+local Format = require(Modules:WaitForChild("Format"))
+local UI = require(Modules:WaitForChild("UIKit"))
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+
+local C, F, new = UI.Color, UI.Font, UI.new
+local MUTED = UI.Muted
+local BEST_MULTIPLIER = GameConfig.Payment.SpeedCurve[1].Multiplier
+local KMH = GameConfig.Moto.SpeedDisplayFactor
+local MIN_BOOST = GameConfig.Maneuver.MinChargeToBoost
+
+local M = 16
+local WALLET_W, RIGHT_W = 180, 288
+local centerWidth = 440
+
+local TOUCH = UI.IsTouch()
+
+-- "Menu", "Survival" ou "Story" (definido pelo servidor)
+local function gameMode(): string
+	return player:GetAttribute("GameMode") or "Menu"
+end
+local function survival(): boolean
+	return gameMode() == "Survival"
+end
+
+for _, child in ipairs(gui:GetChildren()) do
+	if child:IsA("GuiObject") then
+		child:Destroy()
+	end
+end
+
+local uiScale = gui:FindFirstChildOfClass("UIScale") or new("UIScale", { Parent = gui })
+local function updateScale()
+	uiScale.Scale = UI.ScaleFor(Workspace.CurrentCamera.ViewportSize, TOUCH)
+end
+Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
+updateScale()
+
+local function unscaled(px: number): number
+	return px / math.max(uiScale.Scale, 0.01)
+end
+
+local function stack(name: string, anchor: Vector2, position: UDim2, width: number, align: Enum.HorizontalAlignment)
+	local frame = new("Frame", {
+		Name = name,
+		BackgroundTransparency = 1,
+		AnchorPoint = anchor,
+		Position = position,
+		Size = UDim2.fromOffset(width, 520),
+		Parent = gui,
+	})
+	new("UIListLayout", {
+		HorizontalAlignment = align,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 10),
+		Parent = frame,
+	})
+	return frame
+end
+
+local function hlist(parent: Instance, props: { [string]: any })
+	local frame = new("Frame", {
+		Name = props.Name or "Row",
+		BackgroundTransparency = 1,
+		AnchorPoint = props.AnchorPoint or Vector2.zero,
+		Position = props.Position or UDim2.new(),
+		Size = props.Size or UDim2.new(1, 0, 0, 22),
+		ZIndex = 2,
+		Parent = parent,
+	})
+	new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = props.Align or Enum.HorizontalAlignment.Left,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, props.Padding or 6),
+		Parent = frame,
+	})
+	return frame
+end
+
+local topStack = stack("TopStack", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, M), centerWidth, Enum.HorizontalAlignment.Center)
+local rightStack = stack("RightStack", Vector2.new(1, 0), UDim2.new(1, -M, 0, M), RIGHT_W, Enum.HorizontalAlignment.Right)
+
+local wallet, walletFace = UI.Panel({
+	Name = "Wallet",
+	Size = UDim2.fromOffset(WALLET_W, 50),
+	Position = UDim2.fromOffset(M, M),
+	Parent = gui,
+})
+local moneyText = UI.Text({
+	Name = "Money",
+	Text = "$0",
+	Font = F.Number,
+	TextSize = 30,
+	Position = UDim2.fromOffset(16, 0),
+	Size = UDim2.new(1, -32, 1, 0),
+	Parent = walletFace,
+})
+
+-- Sobrevivência: a carteira vira o placar (entregas da partida e recorde)
+local scoreFrame = new("Frame", {
+	Name = "Score",
+	BackgroundTransparency = 1,
+	Size = UDim2.fromScale(1, 1),
+	Visible = false,
+	ZIndex = 2,
+	Parent = walletFace,
+})
+UI.IconImage("caixa", 20, C.Accent, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 14, 0.5, 0), Parent = scoreFrame })
+local scoreText = UI.Text({
+	Name = "Deliveries",
+	Text = "0",
+	Font = F.Number,
+	TextSize = 30,
+	Position = UDim2.fromOffset(42, 0),
+	Size = UDim2.new(0, 70, 1, 0),
+	Parent = scoreFrame,
+})
+UI.Text({
+	Text = "RECORDE",
+	Font = F.Title,
+	TextSize = 13,
+	Transparency = MUTED,
+	XAlign = Enum.TextXAlignment.Right,
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -14, 0, 6),
+	Size = UDim2.fromOffset(80, 16),
+	Parent = scoreFrame,
+})
+local bestText = UI.Text({
+	Font = F.Number,
+	TextSize = 19,
+	XAlign = Enum.TextXAlignment.Right,
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -14, 0, 22),
+	Size = UDim2.fromOffset(70, 20),
+	Parent = scoreFrame,
+})
+local function refreshScore()
+	scoreText.Text = tostring(player:GetAttribute("SurvivalDeliveries") or 0)
+	bestText.Text = tostring(player:GetAttribute("SurvivalBest") or 0)
+end
+player:GetAttributeChangedSignal("SurvivalDeliveries"):Connect(refreshScore)
+player:GetAttributeChangedSignal("SurvivalBest"):Connect(refreshScore)
+refreshScore()
+
+local delta, deltaFace = UI.Panel({
+	Name = "MoneyDelta",
+	Size = UDim2.fromOffset(90, 32),
+	Position = UDim2.fromOffset(M, M + 50 + 8),
+	Color = C.Accent,
+	Stroke = false,
+	Radius = 10,
+	Visible = false,
+	Parent = gui,
+})
+local deltaText = UI.Text({
+	Font = F.Number,
+	TextSize = 18,
+	Color = C.AccentInk,
+	XAlign = Enum.TextXAlignment.Center,
+	Size = UDim2.fromScale(1, 1),
+	Parent = deltaFace,
+})
+deltaText:GetPropertyChangedSignal("TextBounds"):Connect(function()
+	delta.Size = UDim2.fromOffset(math.max(64, unscaled(deltaText.TextBounds.X) + 24), 32)
+end)
+
+local shownMoney = Instance.new("NumberValue")
+shownMoney.Changed:Connect(function(value)
+	moneyText.Text = Format.Money(value)
+end)
+
+local deltaToken, deltaSum = 0, 0
+local function showDelta(amount: number)
+	if amount == 0 then
+		return
+	end
+	if delta.Visible and not delta:GetAttribute("Hiding") and (deltaSum > 0) == (amount > 0) then
+		deltaSum += amount
+	else
+		deltaSum = amount
+	end
+	deltaToken += 1
+	local token = deltaToken
+	local gain = deltaSum > 0
+	deltaFace.BackgroundColor3 = gain and C.Accent or C.Red
+	deltaText.TextColor3 = gain and C.AccentInk or C.Text
+	deltaText.Text = (gain and "+" or "-") .. Format.Money(math.abs(deltaSum))
+	UI.Show(delta, 0.8)
+	task.delay(1.8, function()
+		if token == deltaToken then
+			UI.Hide(delta)
+		end
+	end)
+end
+
+local lastMoney = nil
+local settledAt = nil
+local function refreshMoney()
+	local money = player:GetAttribute("Money") or 0
+	if player:GetAttribute("DataLoaded") and not settledAt then
+		settledAt = os.clock() + 1.5
+	end
+	if lastMoney == nil or not settledAt or os.clock() < settledAt then
+		shownMoney.Value = money
+		moneyText.Text = Format.Money(money)
+	elseif money ~= lastMoney then
+		showDelta(money - lastMoney)
+		TweenService:Create(shownMoney, TweenInfo.new(0.6, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), { Value = money }):Play()
+	end
+	lastMoney = money
+end
+player:GetAttributeChangedSignal("Money"):Connect(refreshMoney)
+player:GetAttributeChangedSignal("DataLoaded"):Connect(refreshMoney)
+refreshMoney()
+
+local offRoad, offRoadFace = UI.Panel({
+	Name = "OffRoad",
+	Size = UDim2.fromOffset(300, 44),
+	Color = C.Red,
+	Transparency = 0,
+	Stroke = false,
+	Radius = 10,
+	LayoutOrder = 1,
+	Visible = false,
+	Parent = topStack,
+})
+UI.Tape(offRoadFace, C.Text, 10)
+local offPlate, offPlateFace = UI.Panel({
+	Name = "Plate",
+	Size = UDim2.new(1, -28, 1, -12),
+	Position = UDim2.fromScale(0.5, 0.5),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Transparency = 0,
+	Shadow = false,
+	Stroke = false,
+	Radius = 7,
+	Parent = offRoadFace,
+})
+offPlate.ZIndex = 3
+local offRow = hlist(offPlateFace, { Size = UDim2.fromScale(1, 1), Align = Enum.HorizontalAlignment.Center, Padding = 8 })
+UI.Text({
+	Text = "FORA DA RUA",
+	Font = F.Title,
+	TextSize = 15,
+	Size = UDim2.fromOffset(0, 22),
+	AutomaticSize = Enum.AutomaticSize.X,
+	LayoutOrder = 1,
+	Parent = offRow,
+})
+local offFeeText = UI.Text({
+	Font = F.Number,
+	TextSize = 18,
+	Color = C.Red,
+	Size = UDim2.fromOffset(0, 22),
+	AutomaticSize = Enum.AutomaticSize.X,
+	LayoutOrder = 2,
+	Parent = offRow,
+})
+local function refreshOffRoadFee()
+	local fee = player:GetAttribute("OffRoadNextFee") or GameConfig.OffRoad.Fee
+	offFeeText.Text = "-" .. Format.Money(fee)
+	offFeeText.Visible = not survival()
+end
+refreshOffRoadFee()
+player:GetAttributeChangedSignal("OffRoadNextFee"):Connect(refreshOffRoadFee)
+player:GetAttributeChangedSignal("OffRoad"):Connect(function()
+	UI.SetShown(offRoad, player:GetAttribute("OffRoad") == true, 0.6)
+end)
+
+local toast, toastFace = UI.Panel({
+	Name = "Delivered",
+	Size = UDim2.fromOffset(300, 116),
+	LayoutOrder = 2,
+	Visible = false,
+	Parent = topStack,
+})
+local toastTitleRow = hlist(toastFace, { Position = UDim2.fromOffset(16, 12), Size = UDim2.new(1, -32, 0, 20), Padding = 6 })
+local toastIcon = UI.IconImage("check", 16, C.Accent, { LayoutOrder = 1, Parent = toastTitleRow })
+local toastTitle = UI.Text({
+	Font = F.Title,
+	TextSize = 15,
+	Color = C.Accent,
+	Size = UDim2.fromOffset(0, 20),
+	AutomaticSize = Enum.AutomaticSize.X,
+	LayoutOrder = 2,
+	Parent = toastTitleRow,
+})
+local toastAmount = UI.Text({
+	Font = F.Number,
+	TextSize = 42,
+	Color = C.Accent,
+	Position = UDim2.fromOffset(15, 32),
+	Size = UDim2.new(1, -30, 0, 46),
+	Parent = toastFace,
+})
+local toastDetails = UI.Text({
+	Font = F.Body,
+	TextSize = 15,
+	Transparency = MUTED,
+	Position = UDim2.fromOffset(16, 82),
+	Size = UDim2.new(1, -32, 0, 20),
+	Truncate = true,
+	Parent = toastFace,
+})
+
+local notice, noticeFace = UI.Panel({
+	Name = "Notice",
+	Size = UDim2.fromOffset(240, 40),
+	LayoutOrder = 3,
+	Visible = false,
+	Parent = topStack,
+})
+local noticeIcon = UI.IconImage("alerta", 18, C.Accent, {
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.new(0, 14, 0.5, 0),
+	Parent = noticeFace,
+})
+local noticeText = UI.Text({
+	Font = F.Text,
+	TextSize = 16,
+	Position = UDim2.fromOffset(42, 0),
+	Size = UDim2.new(0, 0, 1, 0),
+	AutomaticSize = Enum.AutomaticSize.X,
+	Parent = noticeFace,
+})
+local function fitNotice()
+	if noticeText.AutomaticSize ~= Enum.AutomaticSize.X then
+		return
+	end
+	local w = unscaled(noticeText.TextBounds.X)
+	if w + 56 > centerWidth then
+		noticeText.AutomaticSize = Enum.AutomaticSize.None
+		noticeText.TextWrapped = true
+		noticeText.Size = UDim2.new(1, -56, 1, 0)
+		notice.Size = UDim2.fromOffset(centerWidth, 58)
+	else
+		notice.Size = UDim2.fromOffset(math.max(140, w + 56), 40)
+	end
+end
+noticeText:GetPropertyChangedSignal("TextBounds"):Connect(fitNotice)
+local NOTICE_TONES = {
+	info = { Face = C.Panel, Text = C.Text, Icon = C.Accent },
+	bad = { Face = C.Red, Text = C.Text, Icon = C.Text },
+	good = { Face = C.Accent, Text = C.AccentInk, Icon = C.AccentInk },
+}
+local noticeToken = 0
+local function showNotice(text: string, duration: number?, tone: string?, icon: string?)
+	noticeToken += 1
+	local token = noticeToken
+	local style = NOTICE_TONES[tone or "info"] or NOTICE_TONES.info
+	noticeFace.BackgroundColor3 = style.Face
+	noticeText.TextColor3 = style.Text
+	noticeIcon.ImageColor3 = style.Icon
+	noticeIcon.Image = UI.Icon[icon or (tone == "good" and "check" or "alerta")]
+	noticeText.AutomaticSize = Enum.AutomaticSize.X
+	noticeText.TextWrapped = false
+	noticeText.Size = UDim2.new(0, 0, 1, 0)
+	noticeText.Text = UI.StripEmoji(text)
+	task.defer(fitNotice)
+	UI.Show(notice, 0.6)
+	task.delay(duration or 3, function()
+		if noticeToken == token then
+			UI.Hide(notice)
+		end
+	end)
+end
+
+local tutorial, tutorialFace = UI.Panel({
+	Name = "Tutorial",
+	Size = UDim2.fromOffset(centerWidth, 58),
+	LayoutOrder = 4,
+	Visible = false,
+	Parent = topStack,
+})
+new("Frame", {
+	Name = "Bar",
+	BackgroundColor3 = C.Accent,
+	BorderSizePixel = 0,
+	Position = UDim2.fromOffset(12, 12),
+	Size = UDim2.new(0, 4, 1, -24),
+	ZIndex = 2,
+	Parent = tutorialFace,
+})
+local tutorialText = UI.Text({
+	Font = F.Text,
+	TextSize = 16,
+	Wrapped = true,
+	Position = UDim2.fromOffset(26, 0),
+	Size = UDim2.new(1, -40, 1, 0),
+	Parent = tutorialFace,
+})
+
+-- Coluna central: ocupa o vão entre a carteira e o pedido. Em tela estreita desce para baixo da carteira.
+local topLayout = topStack:FindFirstChildOfClass("UIListLayout")
+local function layoutCenter()
+	local canvas = unscaled(Workspace.CurrentCamera.ViewportSize.X)
+	local gapLeft = M + WALLET_W + 16
+	local gapRight = canvas - M - RIGHT_W - 16
+	if gapRight - gapLeft >= 260 then
+		centerWidth = math.min(gapRight - gapLeft, 460)
+		local centerX = math.clamp(canvas / 2, gapLeft + centerWidth / 2, math.max(gapLeft + centerWidth / 2, gapRight - centerWidth / 2))
+		topStack.AnchorPoint = Vector2.new(0.5, 0)
+		topStack.Position = UDim2.new(0, centerX, 0, M)
+		topLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	else
+		centerWidth = math.max(220, gapRight - M)
+		topStack.AnchorPoint = Vector2.zero
+		topStack.Position = UDim2.fromOffset(M, M + 50 + 50)
+		topLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	end
+	topStack.Size = UDim2.fromOffset(centerWidth, 520)
+	offRoad.Size = UDim2.fromOffset(math.min(300, centerWidth), 44)
+	toast.Size = UDim2.fromOffset(math.min(300, centerWidth), 116)
+	tutorial.Size = UDim2.fromOffset(centerWidth, centerWidth >= 400 and 58 or 76)
+end
+uiScale:GetPropertyChangedSignal("Scale"):Connect(layoutCenter)
+Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(layoutCenter)
+layoutCenter()
+
+local waiting, waitingFace = UI.Panel({
+	Name = "Waiting",
+	Size = UDim2.fromOffset(214, 40),
+	LayoutOrder = 1,
+	Parent = rightStack,
+})
+UI.IconImage("lupa", 17, C.Text, {
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.new(0, 14, 0.5, 0),
+	Transparency = MUTED,
+	Parent = waitingFace,
+})
+local waitingText = UI.Text({
+	Text = "Procurando pedidos",
+	Font = F.Text,
+	TextSize = 15,
+	Transparency = MUTED,
+	Position = UDim2.fromOffset(40, 0),
+	Size = UDim2.new(1, -48, 1, 0),
+	Parent = waitingFace,
+})
+
+local function specialBadge(parent: Instance, position: UDim2)
+	local badge = new("Frame", {
+		Name = "Special",
+		BackgroundColor3 = C.Amber,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = position,
+		Size = UDim2.fromOffset(0, 22),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Visible = false,
+		ZIndex = 2,
+		Parent = parent,
+	})
+	new("UICorner", { CornerRadius = UDim.new(0, 6), Parent = badge })
+	new("UIPadding", { PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 8), Parent = badge })
+	new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 4),
+		Parent = badge,
+	})
+	UI.IconImage("estrela", 13, C.AmberInk, { LayoutOrder = 1, ZIndex = 3, Parent = badge })
+	UI.Text({
+		Text = "ESPECIAL",
+		Font = F.Title,
+		TextSize = 14,
+		Color = C.AmberInk,
+		Size = UDim2.fromOffset(0, 22),
+		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = 2,
+		ZIndex = 3,
+		Parent = badge,
+	})
+	return badge
+end
+
+local offer, offerFace = UI.Panel({
+	Name = "Offer",
+	Size = UDim2.fromOffset(RIGHT_W, 184),
+	LayoutOrder = 2,
+	Visible = false,
+	Parent = rightStack,
+})
+UI.Text({
+	Text = "NOVO PEDIDO",
+	Font = F.Title,
+	TextSize = 15,
+	Color = C.Accent,
+	Position = UDim2.fromOffset(16, 12),
+	Size = UDim2.new(1, -32, 0, 20),
+	Parent = offerFace,
+})
+local offerSpecial = specialBadge(offerFace, UDim2.new(1, -14, 0, 11))
+UI.IconImage("sacola", 15, C.Text, { Position = UDim2.fromOffset(16, 40), Transparency = 0.2, Parent = offerFace })
+local offerRestaurant = UI.Text({
+	Font = F.Number,
+	TextSize = 17,
+	Position = UDim2.fromOffset(38, 37),
+	Size = UDim2.new(1, -52, 0, 22),
+	Truncate = true,
+	Parent = offerFace,
+})
+UI.IconImage("casa", 15, C.Text, { Position = UDim2.fromOffset(16, 64), Transparency = MUTED, Parent = offerFace })
+local offerCustomer = UI.Text({
+	Font = F.Text,
+	TextSize = 15,
+	Transparency = 0.25,
+	Position = UDim2.fromOffset(38, 61),
+	Size = UDim2.new(1, -52, 0, 22),
+	Truncate = true,
+	Parent = offerFace,
+})
+local offerPay = UI.Text({
+	Font = F.Number,
+	TextSize = 30,
+	Color = C.Accent,
+	Position = UDim2.fromOffset(15, 88),
+	Size = UDim2.new(0, 120, 0, 36),
+	Parent = offerFace,
+})
+local offerInfo = UI.Text({
+	Font = F.Body,
+	TextSize = 15,
+	Transparency = MUTED,
+	XAlign = Enum.TextXAlignment.Right,
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -16, 0, 90),
+	Size = UDim2.new(1, -150, 0, 16),
+	Truncate = true,
+	Parent = offerFace,
+})
+local offerPayMax = UI.Text({
+	Font = F.Body,
+	TextSize = 15,
+	Transparency = MUTED,
+	XAlign = Enum.TextXAlignment.Right,
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -16, 0, 107),
+	Size = UDim2.new(1, -150, 0, 16),
+	Parent = offerFace,
+})
+
+-- botões da oferta
+local function offerButton(name: string, label: string, key: string, x: number, width: number, primary: boolean)
+	local holder, face = UI.Panel({
+		Name = name,
+		Size = UDim2.fromOffset(width, 40),
+		Position = UDim2.fromOffset(x, 132),
+		Color = primary and C.Accent or C.Raised,
+		Transparency = 0,
+		Shadow = false,
+		Stroke = false,
+		Radius = 9,
+		Parent = offerFace,
+	})
+	holder.ZIndex = 2
+	local row = hlist(face, { Size = UDim2.fromScale(1, 1), Align = Enum.HorizontalAlignment.Center, Padding = 8 })
+	UI.Text({
+		Text = label,
+		Font = F.Title,
+		TextSize = 15,
+		Color = primary and C.AccentInk or C.Text,
+		Size = UDim2.fromOffset(0, 22),
+		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = 1,
+		Parent = row,
+	})
+	UI.Keycap(key, {
+		LayoutOrder = 2,
+		Background = primary and C.AccentInk or C.Panel,
+		Color = primary and C.Accent or C.Text,
+		Parent = row,
+	})
+	return UI.Hit(holder, face)
+end
+local acceptButton = offerButton("Accept", "ACEITAR", "E", 14, 146, true)
+local declineButton = offerButton("Decline", "RECUSAR", "Q", 168, RIGHT_W - 168 - 14, false)
+
+local orderPanel, orderFace = UI.Panel({
+	Name = "Order",
+	Size = UDim2.fromOffset(RIGHT_W, 168),
+	LayoutOrder = 3,
+	Visible = false,
+	Parent = rightStack,
+})
+local disc = new("Frame", {
+	Name = "Disc",
+	BackgroundColor3 = C.Accent,
+	Size = UDim2.fromOffset(42, 42),
+	Position = UDim2.fromOffset(14, 14),
+	ZIndex = 2,
+	Parent = orderFace,
+})
+new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = disc })
+local arrowIcon = UI.IconImage("seta", 24, C.AccentInk, {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	ZIndex = 3,
+	Parent = disc,
+})
+local distanceText = UI.Text({
+	Name = "Distance",
+	Font = F.Number,
+	TextSize = 28,
+	Position = UDim2.fromOffset(66, 14),
+	Size = UDim2.new(1, -116, 0, 42),
+	Parent = orderFace,
+})
+
+local cancelHolder, cancelFace = UI.Panel({
+	Name = "Cancel",
+	Size = UDim2.fromOffset(30, 30),
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -12, 0, 12),
+	Color = C.Raised,
+	Transparency = 0,
+	Shadow = false,
+	Stroke = false,
+	Radius = 8,
+	Parent = orderFace,
+})
+cancelHolder.ZIndex = 3
+local cancelIcon = UI.IconImage("xis", 12, C.Text, {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Transparency = 0.3,
+	Parent = cancelFace,
+})
+local cancelText = UI.Text({
+	Text = "CANCELAR?",
+	Font = F.Title,
+	TextSize = 14,
+	XAlign = Enum.TextXAlignment.Center,
+	Size = UDim2.fromScale(1, 1),
+	Visible = false,
+	Parent = cancelFace,
+})
+local cancelButton = UI.Hit(cancelHolder, cancelFace)
+
+-- etapas: a feita fica riscada com um check verde, a atual em destaque, a próxima apagada
+local function stepRow(y: number, iconName: string)
+	local row = new("Frame", {
+		Name = "Step",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(16, y),
+		Size = UDim2.new(1, -32, 0, 22),
+		ZIndex = 2,
+		Parent = orderFace,
+	})
+	local icon = UI.IconImage(iconName, 15, C.Text, {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 0, 0.5, 0),
+		Parent = row,
+	})
+	local text = UI.Text({
+		Font = F.Text,
+		TextSize = 16,
+		Position = UDim2.fromOffset(24, 0),
+		Size = UDim2.new(1, -24, 1, 0),
+		Truncate = true,
+		Parent = row,
+	})
+	local strike = new("Frame", {
+		Name = "Strike",
+		BackgroundColor3 = C.Text,
+		BackgroundTransparency = 0.5,
+		BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 22, 0.5, 1),
+		Size = UDim2.new(0, 60, 0, 2),
+		ZIndex = 3,
+		Parent = row,
+	})
+	local function fit()
+		strike.Size = UDim2.new(0, math.min(unscaled(text.TextBounds.X), 230) + 4, 0, 2)
+	end
+	text:GetPropertyChangedSignal("TextBounds"):Connect(fit)
+	return { Icon = icon, IconName = iconName, Text = text, Strike = strike, Fit = fit }
+end
+local stepPickup = stepRow(66, "sacola")
+local stepDeliver = stepRow(90, "casa")
+
+local function setStep(step, state: string, label: string)
+	step.Text.Text = label
+	step.Strike.Visible = state == "done"
+	if state == "done" then
+		step.Icon.Image = UI.Icon.check
+		step.Icon.ImageColor3 = C.Accent
+		step.Icon.ImageTransparency = 0
+		step.Text.TextTransparency = 0.55
+	elseif state == "current" then
+		step.Icon.Image = UI.Icon[step.IconName]
+		step.Icon.ImageColor3 = C.Accent
+		step.Icon.ImageTransparency = 0
+		step.Text.TextTransparency = 0
+	else
+		step.Icon.Image = UI.Icon[step.IconName]
+		step.Icon.ImageColor3 = C.Text
+		step.Icon.ImageTransparency = 0.55
+		step.Text.TextTransparency = 0.5
+	end
+	step.Fit()
+end
+
+local timerIcon = UI.IconImage("relogio", 14, C.Text, { Position = UDim2.fromOffset(16, 126), Transparency = MUTED, Parent = orderFace })
+local timerText = UI.Text({
+	Font = F.Number,
+	TextSize = 17,
+	Position = UDim2.fromOffset(36, 123),
+	Size = UDim2.fromOffset(110, 20),
+	Parent = orderFace,
+})
+local multiplierText = UI.Text({
+	Font = F.Number,
+	TextSize = 17,
+	Position = UDim2.fromOffset(16, 143),
+	Size = UDim2.fromOffset(120, 18),
+	Parent = orderFace,
+})
+local estimateText = UI.Text({
+	Font = F.Number,
+	TextSize = 36,
+	XAlign = Enum.TextXAlignment.Right,
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -16, 0, 120),
+	Size = UDim2.fromOffset(150, 40),
+	Parent = orderFace,
+})
+
+-- Sobrevivência: barra do relógio restante no pé do cartão
+local deadlineBar = new("Frame", {
+	Name = "DeadlineBar",
+	BackgroundColor3 = C.Text,
+	BackgroundTransparency = 0.88,
+	BorderSizePixel = 0,
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 16, 1, -10),
+	Size = UDim2.new(1, -32, 0, 4),
+	Visible = false,
+	ZIndex = 2,
+	Parent = orderFace,
+})
+new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = deadlineBar })
+local deadlineFill = new("Frame", {
+	Name = "Fill",
+	BackgroundColor3 = C.Text,
+	BorderSizePixel = 0,
+	Size = UDim2.fromScale(1, 1),
+	ZIndex = 3,
+	Parent = deadlineBar,
+})
+new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = deadlineFill })
+
+local speedPanel, speedFace = UI.Panel({
+	Name = "Speed",
+	Size = UDim2.fromOffset(150, 76),
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.new(1, -M, 1, -M),
+	Parent = gui,
+})
+local speedText = UI.Text({
+	Text = "0",
+	Font = F.Number,
+	TextSize = 40,
+	XAlign = Enum.TextXAlignment.Right,
+	Position = UDim2.fromOffset(8, 4),
+	Size = UDim2.fromOffset(82, 44),
+	Parent = speedFace,
+})
+local unitText = UI.Text({
+	Text = "km/h",
+	Font = F.Text,
+	TextSize = 15,
+	Transparency = MUTED,
+	Position = UDim2.fromOffset(96, 22),
+	Size = UDim2.fromOffset(50, 20),
+	Parent = speedFace,
+})
+local turboBar = new("CanvasGroup", {
+	Name = "TurboBar",
+	BackgroundColor3 = C.Text,
+	BackgroundTransparency = 0.88,
+	Position = UDim2.fromOffset(14, 56),
+	Size = UDim2.new(1, -28, 0, 6),
+	ZIndex = 2,
+	Parent = speedFace,
+})
+new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = turboBar })
+local turboFill = new("Frame", {
+	Name = "Fill",
+	BackgroundColor3 = C.Text,
+	BorderSizePixel = 0,
+	Size = UDim2.fromScale(0, 1),
+	Parent = turboBar,
+})
+new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = turboFill })
+local turboLabel = UI.Text({
+	Font = F.Title,
+	TextSize = 15,
+	Color = C.Accent,
+	XAlign = Enum.TextXAlignment.Right,
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.new(1, 0, 0, -6),
+	Size = UDim2.fromOffset(150, 18),
+	Visible = false,
+	Parent = speedPanel,
+})
+
+local BUTTON = TOUCH and 56 or 52
+local menuRow = hlist(gui, {
+	Name = "Menu",
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, M, 1, -M),
+	Size = UDim2.fromOffset(3 * BUTTON + 20, BUTTON),
+	Padding = 10,
+})
+local function menuButton(order: number, icon: string, name: string, key: string)
+	local holder, face = UI.Panel({
+		Name = name,
+		Size = UDim2.fromOffset(BUTTON, BUTTON),
+		LayoutOrder = order,
+		Parent = menuRow,
+	})
+	UI.IconImage(icon, 24, C.Text, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Parent = face })
+	UI.Keycap(key, {
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -4, 1, -4),
+		Width = 18,
+		Height = 18,
+		TextSize = 13,
+		Background = C.Raised,
+		ZIndex = 5,
+		Parent = face,
+	})
+	return UI.Hit(holder, face), holder, face
+end
+local shopButton, shopHolder = menuButton(1, "chave", "Oficina", "L")
+local areasButton, areasHolder = menuButton(2, "mapa", "Areas", "M")
+local resetButton = menuButton(3, "reset", "Reset", "R")
+local quitButton, quitHolder, quitFace = menuButton(4, "xis", "Sair", "X")
+quitHolder.Visible = false
+local quitText = UI.Text({
+	Text = "SAIR?",
+	Font = F.Title,
+	TextSize = 15,
+	XAlign = Enum.TextXAlignment.Center,
+	Size = UDim2.fromScale(1, 1),
+	Visible = false,
+	Parent = quitFace,
+})
+
+local function layoutMenu()
+	local width, count = 0, 0
+	for _, holder in ipairs(menuRow:GetChildren()) do
+		if holder:IsA("GuiObject") and holder.Visible then
+			width += holder.Size.X.Offset
+			count += 1
+		end
+	end
+	menuRow.Size = UDim2.fromOffset(width + math.max(0, count - 1) * 10, BUTTON)
+end
+
+-- Sair da partida pede confirmação (1º clique arma, 2º confirma)
+local quitArmed, quitToken = false, 0
+local function setQuitArmed(armed: boolean)
+	quitArmed = armed
+	quitFace.Icon.Visible = not armed
+	local key = quitFace:FindFirstChild("Key")
+	if key then
+		key.Visible = not armed and UI.InputKind() == "Keyboard"
+	end
+	quitText.Visible = armed
+	quitFace.BackgroundColor3 = armed and C.Red or C.Panel
+	quitHolder.Size = UDim2.fromOffset(armed and 96 or BUTTON, BUTTON)
+	layoutMenu()
+end
+local function requestQuit()
+	if not survival() then
+		return
+	end
+	quitToken += 1
+	local token = quitToken
+	if not quitArmed then
+		setQuitArmed(true)
+		task.delay(3, function()
+			if quitToken == token then
+				setQuitArmed(false)
+			end
+		end)
+		return
+	end
+	setQuitArmed(false)
+	Remotes.RequestQuitSurvival:FireServer()
+end
+quitButton.Activated:Connect(requestQuit)
+
+local maneuver, maneuverFace = UI.Panel({
+	Name = "Maneuver",
+	Size = UDim2.fromOffset(300, 52),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.66),
+	Transparency = 0,
+	Stroke = false,
+	Radius = 10,
+	Visible = false,
+	Parent = gui,
+})
+local maneuverTape, maneuverStripes = UI.Tape(maneuverFace, C.Panel, 10)
+local maneuverPlate, maneuverPlateFace = UI.Panel({
+	Name = "Plate",
+	Size = UDim2.new(1, -28, 1, -12),
+	Position = UDim2.fromScale(0.5, 0.5),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Transparency = 0,
+	Shadow = false,
+	Stroke = false,
+	Radius = 7,
+	Parent = maneuverFace,
+})
+maneuverPlate.ZIndex = 3
+local maneuverText = UI.Text({
+	Font = F.Title,
+	TextSize = 24,
+	XAlign = Enum.TextXAlignment.Center,
+	Size = UDim2.fromScale(1, 1),
+	Parent = maneuverPlateFace,
+})
+maneuverText:GetPropertyChangedSignal("TextBounds"):Connect(function()
+	maneuver.Size = UDim2.fromOffset(math.max(200, unscaled(maneuverText.TextBounds.X) + 70), 52)
+end)
+
+local MANEUVER_STYLE = {
+	good = { Face = C.Accent, Tape = false, Plate = nil, Text = C.AccentInk },
+	hazard = { Face = C.Amber, Tape = true, Stripe = C.AmberInk, Plate = C.Panel, Text = C.Amber },
+	bad = { Face = C.Red, Tape = true, Stripe = C.Text, Plate = C.Panel, Text = C.Text },
+}
+local MANEUVER_KIND = {
+	["GRAU!"] = "good",
+	["SALTO! +TURBO"] = "good",
+	["PNEU TROCADO!"] = "good",
+	["TURBO!"] = "good",
+	["ÓLEO NA PISTA!"] = "hazard",
+	["BURACO!"] = "hazard",
+	["LAMA!"] = "hazard",
+	["LOMBADA!"] = "hazard",
+	["ÁGUA NA PISTA!"] = "hazard",
+	["CAIU DO GRAU!"] = "bad",
+	["BATEU!"] = "bad",
+	["PNEU FURADO!"] = "bad",
+	["RADAR! MULTA"] = "bad",
+	["BOLADA!"] = "bad",
+	["ATROPELOU!"] = "bad",
+	["LOMBADA! REDUZA"] = "hazard",
+	["ESCUDO!"] = "good",
+	["NITRO!"] = "good",
+	["MODO FANTASMA!"] = "good",
+	["SALTO EXTREMO!"] = "good",
+	["CARRO TE ACERTOU!"] = "bad",
+	["PNEU REFORÇADO!"] = "good",
+	["SIRENE!"] = "good",
+	["CÂMERA LENTA!"] = "good",
+	["SAÍDA RÁPIDA!"] = "good",
+	["MULTA NA BLITZ!"] = "bad",
+	["BLITZ: LIBERADO"] = "good",
+}
+local function styleManeuver(kind: string)
+	local style = MANEUVER_STYLE[kind] or MANEUVER_STYLE.hazard
+	maneuverFace.BackgroundColor3 = style.Face
+	maneuverTape.Visible = style.Tape
+	if style.Tape then
+		maneuverStripes.ImageColor3 = style.Stripe
+	end
+	maneuverPlateFace.BackgroundTransparency = style.Plate and 0 or 1
+	if style.Plate then
+		maneuverPlateFace.BackgroundColor3 = style.Plate
+	end
+	maneuverText.TextColor3 = style.Text
+end
+
+-- aviso grande no meio da tela vindo do servidor (o MotoController usa o mesmo atributo)
+local flashCount = 0
+local function flashManeuver(text: string)
+	flashCount += 1
+	player:SetAttribute("Maneuver", text .. "#s" .. flashCount)
+end
+
+local maneuverToken = 0
+player:GetAttributeChangedSignal("Maneuver"):Connect(function()
+	local raw = player:GetAttribute("Maneuver") or ""
+	local text = string.match(raw, "^(.-)#") or raw
+	if text == "" then
+		return
+	end
+	maneuverToken += 1
+	local token = maneuverToken
+	styleManeuver(MANEUVER_KIND[text] or "hazard")
+	maneuverText.Text = text
+	UI.Show(maneuver, 1.2)
+	task.delay(1.1, function()
+		if maneuverToken == token then
+			UI.Hide(maneuver)
+		end
+	end)
+end)
+
+local marker = nil
+local markerRing, markerFill = nil, nil
+local markerChevrons = nil
+local function clearMarker()
+	if marker then
+		marker:Destroy()
+		marker = nil
+	end
+	markerRing, markerFill, markerChevrons = nil, nil, nil
+	player:SetAttribute("RouteTarget", nil) -- a trilha no chão (RouteGuide) some junto
+end
+
+local function groundImage(parent: Instance, image: string, color: Color3, transparency: number, y: number, diameter: number)
+	local part = new("Part", {
+		Name = "Ground",
+		Anchored = true,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		CastShadow = false,
+		Transparency = 1,
+		Size = Vector3.new(diameter, 0.05, diameter),
+		CFrame = CFrame.new(0, y, 0),
+		Parent = parent,
+	})
+	local surface = new("SurfaceGui", {
+		Face = Enum.NormalId.Top,
+		LightInfluence = 0,
+		Brightness = 1.4,
+		SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud,
+		PixelsPerStud = 16,
+		Parent = part,
+	})
+	local img = new("ImageLabel", {
+		BackgroundTransparency = 1,
+		Image = image,
+		ImageColor3 = color,
+		ImageTransparency = transparency,
+		Size = UDim2.fromScale(1, 1),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Parent = surface,
+	})
+	return part, img
+end
+
+-- coleta = âmbar (restaurante); entrega = verde (cliente: é onde você recebe)
+local function setMarker(position: Vector3, isPickup: boolean, radius: number)
+	clearMarker()
+	local color = isPickup and C.Amber or C.Accent
+	local model = new("Model", { Name = "OrderMarker" })
+	local diameter = radius * 2
+	local fillPart, fill = groundImage(model, UI.Texture.miolo, color, 0.35, 0.42, diameter)
+	local ringPart, ring = groundImage(model, UI.Texture.anel, color, 0, 0.46, diameter)
+	fillPart:PivotTo(CFrame.new(position.X, 0.42, position.Z))
+	ringPart:PivotTo(CFrame.new(position.X, 0.46, position.Z))
+	markerRing, markerFill = ring, fill
+	-- marca no chão como nos jogos LEGO: quatro setas em volta do anel apontando para o centro, "chamando" o jogador
+	local chevronPart = groundImage(model, "", color, 1, 0.5, diameter * 1.75)
+	chevronPart:PivotTo(CFrame.new(position.X, 0.5, position.Z))
+	local surface = chevronPart:FindFirstChildOfClass("SurfaceGui")
+	markerChevrons = {}
+	for _, def in ipairs({ { 0.5, 0, 180 }, { 0.5, 1, 0 }, { 0, 0.5, 90 }, { 1, 0.5, -90 } }) do
+		local arrow = new("ImageLabel", {
+			Name = "Seta",
+			BackgroundTransparency = 1,
+			Image = UI.Icon.seta,
+			ImageColor3 = color,
+			Size = UDim2.fromScale(0.15, 0.15),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = def[3],
+			Parent = surface,
+		})
+		table.insert(markerChevrons, { Image = arrow, X = def[1], Y = def[2] })
+	end
+	new("PointLight", { Color = color, Brightness = 1.2, Range = radius * 1.6, Parent = chevronPart })
+	model.Parent = Workspace
+	marker = model
+	-- destino da trilha no chão (RouteGuide)
+	player:SetAttribute("RouteColor", color)
+	player:SetAttribute("RouteRadius", radius)
+	player:SetAttribute("RouteTarget", Vector3.new(position.X, 0, position.Z))
+end
+
+local currentOffer = nil
+local activeOrders = {}
+local lastStatus = nil
+
+local function getPrimaryOrder()
+	local best = nil
+	for _, order in pairs(activeOrders) do
+		if not best or order.Id < best.Id then
+			best = order
+		end
+	end
+	return best
+end
+
+local function formatDistance(studs: number): string
+	if studs >= 1000 then
+		return (string.format("%.1f km", studs / 1000):gsub("%.", ","))
+	end
+	return string.format("%d m", math.floor(studs))
+end
+
+local function refreshOrderPanel()
+	local order = getPrimaryOrder()
+	UI.SetShown(orderPanel, order ~= nil, 0.8)
+	UI.SetShown(waiting, order == nil and currentOffer == nil, 0.4)
+	if not order then
+		lastStatus = nil
+		clearMarker()
+		return
+	end
+	cancelHolder.Visible = not order.Survival -- na Sobrevivência não dá para cancelar (só sair da partida)
+	local toRestaurant = order.Status == "ToRestaurant"
+	setStep(stepPickup, toRestaurant and "current" or "done", order.RestaurantName)
+	setStep(stepDeliver, toRestaurant and "next" or "current", order.CustomerName .. "  •  " .. order.CustomerPlace)
+	if toRestaurant then
+		disc.BackgroundColor3 = C.Amber
+		arrowIcon.ImageColor3 = C.AmberInk
+		setMarker(order.RestaurantPosition, true, order.PointRadius)
+	else
+		disc.BackgroundColor3 = C.Accent
+		arrowIcon.ImageColor3 = C.AccentInk
+		setMarker(order.CustomerPosition, false, order.PointRadius)
+	end
+	if lastStatus and lastStatus ~= order.Status then
+		UI.Show(orderPanel, 0.5)
+	end
+	lastStatus = order.Status
+end
+
+local function showOffer(order)
+	currentOffer = order
+	if order then
+		offerSpecial.Visible = order.IsSpecial == true
+		offerRestaurant.Text = order.RestaurantName
+		offerCustomer.Text = order.CustomerName
+		offerPay.Text = Format.Money(order.BasePay)
+		offerInfo.Text = string.format("%s  •  prazo %s", formatDistance(order.StraightDistance), Format.Time(order.IdealTime))
+		offerPayMax.Text = "até " .. Format.Money(order.BasePay * BEST_MULTIPLIER) .. " voando"
+		UI.Show(offer, offer.Visible and 0.4 or 1)
+	else
+		UI.SetShown(offer, false)
+	end
+	refreshOrderPanel()
+end
+
+local function acceptOffer()
+	if currentOffer then
+		Remotes.RequestAcceptOrder:FireServer(currentOffer.Id)
+	end
+end
+
+local function declineOffer()
+	if currentOffer then
+		Remotes.RequestDeclineOrder:FireServer()
+		showOffer(nil)
+	end
+end
+
+acceptButton.Activated:Connect(acceptOffer)
+declineButton.Activated:Connect(declineOffer)
+
+local cancelArmed = false
+local cancelToken = 0
+local function setCancelArmed(armed: boolean)
+	cancelArmed = armed
+	cancelIcon.Visible = not armed
+	cancelText.Visible = armed
+	cancelFace.BackgroundColor3 = armed and C.Red or C.Raised
+	cancelHolder.Size = armed and UDim2.fromOffset(96, 30) or UDim2.fromOffset(30, 30)
+end
+cancelButton.Activated:Connect(function()
+	local order = getPrimaryOrder()
+	if not order then
+		return
+	end
+	if not cancelArmed then
+		setCancelArmed(true)
+		cancelToken += 1
+		local token = cancelToken
+		task.delay(3, function()
+			if cancelToken == token then
+				setCancelArmed(false)
+			end
+		end)
+		return
+	end
+	cancelToken += 1
+	setCancelArmed(false)
+	Remotes.RequestCancelOrder:FireServer(order.Id)
+end)
+
+local toastToken = 0
+local function showToast(result)
+	toastToken += 1
+	local token = toastToken
+	toastTitle.Text = result.IsSpecial and "ENTREGA ESPECIAL" or "ENTREGUE"
+	toastIcon.Image = result.IsSpecial and UI.Icon.estrela or UI.Icon.check
+	toastAmount.Text = "+" .. Format.Money(result.Total)
+	local tipPercent = math.floor((result.Tip - 1) * 100 + 0.5)
+	local parts = {
+		string.format("%s de %s", Format.Time(result.RealTime), Format.Time(result.IdealTime)),
+		UI.Multiplier(result.SpeedMultiplier),
+		string.format("gorjeta %s%d%%", tipPercent >= 0 and "+" or "", tipPercent),
+	}
+	if (result.ComboBonus or 0) > 0 then
+		table.insert(parts, string.format("combo x%d", result.Combo))
+	end
+	toastDetails.Text = table.concat(parts, "  •  ")
+	UI.Show(toast, 1.3)
+	task.delay(3.4, function()
+		if toastToken == token then
+			UI.Hide(toast)
+		end
+	end)
+end
+
+local function showSurvivalToast(result)
+	toastToken += 1
+	local token = toastToken
+	local n = result.Deliveries or 0
+	toastTitle.Text = result.RecordBroken and "NOVO RECORDE" or "ENTREGUE"
+	toastIcon.Image = result.RecordBroken and UI.Icon.estrela or UI.Icon.check
+	toastAmount.Text = string.format("%d %s", n, n == 1 and "entrega" or "entregas")
+	local gained = string.format("+%d s no relógio", result.TimeBonus or 0)
+	if result.PerfectBonus then
+		toastDetails.Text = gained .. string.format("  •  sequência perfeita +%d", result.PerfectBonus)
+	else
+		toastDetails.Text = gained .. string.format("  •  relógio em %s", Format.Time(math.ceil(result.Clock or 0)))
+	end
+	UI.Show(toast, 1.3)
+	UI.Show(wallet, 0.6)
+	task.delay(2.4, function()
+		if toastToken == token then
+			UI.Hide(toast)
+		end
+	end)
+end
+
+Remotes.OrderOffered.OnClientEvent:Connect(showOffer)
+
+Remotes.OrderAccepted.OnClientEvent:Connect(function(order)
+	activeOrders[order.Id] = order
+	if currentOffer and currentOffer.Id == order.Id then
+		currentOffer = nil
+		UI.SetShown(offer, false)
+	end
+	refreshOrderPanel()
+end)
+
+Remotes.OrderPickedUp.OnClientEvent:Connect(function(order)
+	activeOrders[order.Id] = order
+	refreshOrderPanel()
+	local ev = order.Event
+	if order.Survival and type(ev) == "table" and ev.Kind == "blitz" then
+		showNotice(string.format("Coletado! Blitz no caminho: máx. %d km/h", GameConfig.Survival.Events.BlitzLimitKmh), 4, "info", "sirene")
+	else
+		showNotice("Pedido coletado! Leve até " .. order.CustomerName, 2.5, "good", "check")
+	end
+end)
+
+Remotes.OrderDelivered.OnClientEvent:Connect(function(result)
+	activeOrders[result.OrderId] = nil
+	refreshOrderPanel()
+	if result.Survival then
+		showSurvivalToast(result)
+	else
+		showToast(result)
+	end
+end)
+
+Remotes.OrderCancelled.OnClientEvent:Connect(function(orderId, reason)
+	activeOrders[orderId] = nil
+	setCancelArmed(false)
+	refreshOrderPanel()
+	showNotice(tostring(reason), 3.5, "bad", "xis")
+end)
+
+Remotes.Notify.OnClientEvent:Connect(function(text)
+	text = tostring(text)
+	local isCharge = string.find(text, "-%$") ~= nil
+	local icon = isCharge and "alerta" or (string.find(text, "Aguarde") and "relogio" or "alerta")
+	showNotice(text, isCharge and 2.5 or 3, isCharge and "bad" or "info", icon)
+end)
+
+local waitingClock = 0
+local flatShown = false
+RunService.RenderStepped:Connect(function(dt)
+	local speed = player:GetAttribute("DisplaySpeed") or 0
+	speedText.Text = tostring(math.floor(speed * KMH + 0.5))
+
+	local flat = player:GetAttribute("FlatTire") or 0
+	if flat > 0 then
+		maneuverToken += 1
+		styleManeuver("bad")
+		maneuverText.Text = (string.format("PNEU FURADO  %.1fs", flat):gsub("%.", ","))
+		if not flatShown then
+			flatShown = true
+			UI.Show(maneuver, 1)
+		end
+	elseif flatShown then
+		flatShown = false
+		UI.Hide(maneuver)
+	end
+
+	local charge = player:GetAttribute("TurboCharge") or 0
+	local boosting = player:GetAttribute("Boosting") == true
+	turboFill.Size = UDim2.fromScale(boosting and 1 or math.clamp(charge, 0, 1), 1)
+	if boosting then
+		turboFill.BackgroundColor3 = C.Accent
+		turboFill.BackgroundTransparency = 0
+		turboLabel.Visible = true
+		turboLabel.Text = "TURBO!"
+	elseif charge >= MIN_BOOST then
+		turboFill.BackgroundColor3 = C.Accent
+		turboFill.BackgroundTransparency = 0.25 + 0.25 * math.sin(os.clock() * 9)
+		turboLabel.Visible = true
+		turboLabel.Text = ({ Touch = "SOLTE O GRAU", Gamepad = "SOLTE O X" })[UI.InputKind()] or "SOLTE O SHIFT"
+	else
+		turboFill.BackgroundColor3 = C.Text
+		turboFill.BackgroundTransparency = 0.45
+		turboLabel.Visible = false
+	end
+
+	if waiting.Visible then
+		waitingClock += dt
+		waitingText.Text = (survival() and "Próximo pedido" or "Procurando pedidos") .. string.rep(".", math.floor(waitingClock / 0.4) % 4)
+	end
+
+	if markerRing then
+		markerRing.Rotation = (markerRing.Rotation + dt * 18) % 360
+		markerFill.ImageTransparency = 0.35 + 0.15 * math.sin(os.clock() * 3)
+	end
+	if markerChevrons then
+		-- setas "respirando" para dentro do anel
+		local wave = 0.5 + 0.5 * math.sin(os.clock() * 4.5)
+		local d = 0.08 + 0.07 * wave
+		for _, ch in ipairs(markerChevrons) do
+			ch.Image.Position = UDim2.fromScale(ch.X + (0.5 - ch.X) * 2 * d, ch.Y + (0.5 - ch.Y) * 2 * d)
+			ch.Image.ImageTransparency = 0.1 + 0.25 * wave
+		end
+	end
+
+	local order = getPrimaryOrder()
+	if not order then
+		return
+	end
+	if order.Survival then
+		-- relógio da partida: branco, âmbar quando está acabando, vermelho piscando nos últimos 5 s
+		local left = math.max(0, order.DeadlineServerTime - Workspace:GetServerTimeNow())
+		local frac = math.clamp(left / math.max(order.TimeAllowed, 0.1), 0, 1)
+		local critical = left <= 5
+		local color = critical and C.Red or (frac <= 0.35 and C.Amber or C.Text)
+		estimateText.Text = left < 10 and (string.format("%.1f", left):gsub("%.", ",")) or Format.Time(math.ceil(left))
+		estimateText.TextColor3 = color
+		estimateText.TextTransparency = critical and (0.3 + 0.3 * math.sin(os.clock() * 14)) or 0
+		timerText.Text = string.format("+%d s na entrega", order.NextBonus or 0)
+		timerText.TextColor3 = C.Text
+		timerIcon.ImageColor3 = color
+		multiplierText.Text = string.format("entrega nº %d", (player:GetAttribute("SurvivalDeliveries") or 0) + 1)
+		multiplierText.TextColor3 = C.Text
+		deadlineFill.Size = UDim2.fromScale(frac, 1)
+		deadlineFill.BackgroundColor3 = color
+	else
+		local elapsed = Workspace:GetServerTimeNow() - (order.AcceptedServerTime or Workspace:GetServerTimeNow())
+		timerText.Text = string.format("%s / %s", Format.Time(elapsed), Format.Time(order.IdealTime))
+		local late = elapsed > order.IdealTime
+		timerText.TextColor3 = late and C.Red or C.Text
+		timerIcon.ImageColor3 = late and C.Red or C.Text
+		local estimate, multiplier = PaymentCalculator.Estimate(order.BasePay, order.IdealTime, elapsed)
+		local color = multiplier >= 1.5 and C.Accent or (multiplier >= 1 and C.Text or C.Red)
+		estimateText.Text = Format.Money(estimate)
+		estimateText.TextColor3 = color
+		estimateText.TextTransparency = 0
+		multiplierText.Text = UI.Multiplier(multiplier)
+		multiplierText.TextColor3 = color
+	end
+
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root then
+		local target = order.Status == "ToRestaurant" and order.RestaurantPosition or order.CustomerPosition
+		local deltaPos = Vector3.new(target.X - root.Position.X, 0, target.Z - root.Position.Z)
+		distanceText.Text = formatDistance(deltaPos.Magnitude)
+		local look = Workspace.CurrentCamera.CFrame.LookVector
+		local angle = math.atan2(deltaPos.X, deltaPos.Z) - math.atan2(look.X, look.Z)
+		arrowIcon.Rotation = -math.deg(angle)
+	end
+end)
+
+local function toggleWindow(guiName: string)
+	local target = playerGui:FindFirstChild(guiName)
+	local window = target and target:FindFirstChild("Window")
+	if not window then
+		return
+	end
+	local open = not window.Visible
+	for _, name in ipairs({ "ShopGui", "AreasGui" }) do
+		local g = playerGui:FindFirstChild(name)
+		local w = g and g:FindFirstChild("Window")
+		if w then
+			w.Visible = false
+		end
+	end
+	window.Visible = open
+end
+
+shopButton.Activated:Connect(function()
+	if gameMode() == "Story" then
+		toggleWindow("ShopGui")
+	end
+end)
+areasButton.Activated:Connect(function()
+	if gameMode() == "Story" then
+		toggleWindow("AreasGui")
+	end
+end)
+resetButton.Activated:Connect(function()
+	Remotes.RequestResetMoto:FireServer()
+end)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.E then
+		acceptOffer()
+	elseif input.KeyCode == Enum.KeyCode.Q then
+		declineOffer()
+	elseif input.KeyCode == Enum.KeyCode.L and gameMode() == "Story" then
+		toggleWindow("ShopGui")
+	elseif input.KeyCode == Enum.KeyCode.M and gameMode() == "Story" then
+		toggleWindow("AreasGui")
+	elseif input.KeyCode == Enum.KeyCode.X then
+		requestQuit()
+	end
+end)
+
+player:GetAttributeChangedSignal("CurrentAreaId"):Connect(function()
+	local area = AreaConfig.Get(player:GetAttribute("CurrentAreaId") or 0)
+	if area and gameMode() == "Story" then
+		showNotice(string.format("%s  •  paga %s", area.Name, UI.Multiplier(area.PayMultiplier)), 2.5, "info", "pino")
+	end
+end)
+
+local tutorialActive = false
+local tutorialToken = 0
+local function tutorialStep(text: string, duration: number)
+	if not tutorialActive then
+		return
+	end
+	tutorialToken += 1
+	local token = tutorialToken
+	tutorialText.Text = text
+	UI.Show(tutorial, 0.5)
+	task.delay(duration, function()
+		if tutorialToken == token then
+			UI.Hide(tutorial)
+		end
+	end)
+end
+local TUTORIAL_START = TOUCH and "Um pedido vai aparecer à direita. Toque em ACEITAR."
+	or "Um pedido vai aparecer à direita. Aperte E para aceitar."
+-- O tutorial liga ao entrar num modo pela 1ª vez (História: nenhuma entrega; Sobrevivência: sem recorde)
+local function startTutorial()
+	local m = gameMode()
+	tutorialActive = (m == "Story" and (player:GetAttribute("TotalDeliveries") or 0) == 0)
+		or (m == "Survival" and (player:GetAttribute("SurvivalBest") or 0) == 0)
+	if tutorialActive and m == "Story" then
+		tutorialStep(TUTORIAL_START, 8)
+	end
+end
+-- dicas de controle conforme o dispositivo do momento (teclado, controle ou toque)
+local function controlsHint(): string
+	return ({ Touch = "Use os botões para acelerar e virar.", Gamepad = "RT acelera, LT freia e o analógico vira." })[UI.InputKind()]
+		or "W acelera, A e D viram, S freia."
+end
+local function grauHint(): string
+	return ({ Touch = "Segure GRAU e solte para o turbo.", Gamepad = "Segure X e solte para o turbo." })[UI.InputKind()]
+		or "Segure SHIFT e solte para o turbo."
+end
+Remotes.OrderAccepted.OnClientEvent:Connect(function()
+	tutorialStep((survival() and "Siga as setas no chão até o restaurante antes do relógio zerar. " or "Siga as setas no chão até o restaurante. ") .. controlsHint(), 7)
+end)
+Remotes.OrderPickedUp.OnClientEvent:Connect(function()
+	tutorialStep(survival() and "Agora siga as setas VERDES até o cliente. Se o relógio zerar, a partida acaba!"
+		or "Agora siga as setas VERDES até o cliente. Quanto mais rápido, mais você ganha.", 7)
+end)
+Remotes.OrderCancelled.OnClientEvent:Connect(function()
+	tutorialStep(TUTORIAL_START, 6)
+end)
+Remotes.OrderDelivered.OnClientEvent:Connect(function()
+	if not tutorialActive then
+		return
+	end
+	if survival() then
+		tutorialStep("Boa! Cada entrega soma segundos no relógio, mas cada vez menos, e a cidade enche. " .. grauHint(), 8)
+		tutorialActive = false
+		return
+	end
+	tutorialStep("Primeira entrega! " .. grauHint() .. (UI.InputKind() == "Keyboard" and " L abre a Oficina." or ""), 8)
+	tutorialActive = false
+end)
+
+------------------------------------------------------------------ habilidades (Sobrevivência)
+local AbilityConfig = require(Modules:WaitForChild("AbilityConfig"))
+local CHIP = 48
+local CHIPS_PER_ROW = 7
+-- no PC fica acima do velocímetro (cresce para cima); no toque fica abaixo da carteira (cresce para baixo)
+local abilityRow = new("Frame", {
+	Name = "Abilities",
+	BackgroundTransparency = 1,
+	AnchorPoint = TOUCH and Vector2.zero or Vector2.new(1, 1),
+	Position = TOUCH and UDim2.fromOffset(M, M + 50 + 12) or UDim2.new(1, -M, 1, -(M + 76 + 12)),
+	Size = UDim2.fromOffset(CHIPS_PER_ROW * CHIP + (CHIPS_PER_ROW - 1) * 8, 2 * CHIP + 12),
+	Parent = gui,
+})
+new("UIGridLayout", {
+	CellSize = UDim2.fromOffset(CHIP, CHIP),
+	CellPadding = UDim2.fromOffset(8, 12),
+	FillDirection = Enum.FillDirection.Horizontal,
+	StartCorner = TOUCH and Enum.StartCorner.TopLeft or Enum.StartCorner.BottomRight,
+	HorizontalAlignment = TOUCH and Enum.HorizontalAlignment.Left or Enum.HorizontalAlignment.Right,
+	VerticalAlignment = TOUCH and Enum.VerticalAlignment.Top or Enum.VerticalAlignment.Bottom,
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	Parent = abilityRow,
+})
+abilityRow.Visible = false
+local chips = {}
+
+local function makeChip(order: number, ability)
+	local holder, face = UI.Panel({ Name = ability.Id, Size = UDim2.fromOffset(CHIP, CHIP), LayoutOrder = order, Parent = abilityRow })
+	local icon = UI.IconImage(ability.Icon, 24, C.Text, {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		ZIndex = 3,
+		Parent = face,
+	})
+	-- cobertura de recarga: desce conforme o tempo passa
+	local cover = new("Frame", {
+		Name = "Cooldown",
+		BackgroundColor3 = C.Panel,
+		BackgroundTransparency = 0.2,
+		BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.fromScale(0, 1),
+		Size = UDim2.fromScale(1, 0),
+		ZIndex = 4,
+		Parent = face,
+	})
+	new("UICorner", { CornerRadius = UDim.new(0, 12), Parent = cover })
+	local count = UI.Text({
+		Font = F.Number,
+		TextSize = 18,
+		XAlign = Enum.TextXAlignment.Center,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 5,
+		Visible = false,
+		Parent = face,
+	})
+	local badge = UI.Text({
+		Font = F.Number,
+		TextSize = 13,
+		XAlign = Enum.TextXAlignment.Center,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -1),
+		Size = UDim2.new(1, 0, 0, 14),
+		ZIndex = 6,
+		Visible = false,
+		Parent = face,
+	})
+	if ability.Key then
+		UI.Keycap(ability.Key == "Espaço" and "ESP" or ability.Key, {
+			Gamepad = ability.Pad,
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, 4, 0, -6),
+			Height = 18,
+			TextSize = 12,
+			Background = C.Raised,
+			ZIndex = 7,
+			Parent = face,
+		})
+	end
+	return { Id = ability.Id, Ability = ability, Holder = holder, Face = face, Icon = icon, Cover = cover, Count = count, Badge = badge }
+end
+
+local function rebuildChips()
+	for _, chip in ipairs(chips) do
+		chip.Holder:Destroy()
+	end
+	table.clear(chips)
+	local owned = AbilityConfig.Parse(player:GetAttribute("Abilities"))
+	for i, ability in ipairs(AbilityConfig.List) do
+		if owned[ability.Id] then
+			local chip = makeChip(i, ability)
+			table.insert(chips, chip)
+			UI.Show(chip.Holder, 1.4)
+		end
+	end
+end
+player:GetAttributeChangedSignal("Abilities"):Connect(rebuildChips)
+
+-- estado de cada habilidade (atributos locais do MotoController e do servidor)
+local READY_ATTR = { shield = "ShieldReadyAt", jump = "JumpReadyAt", ghost = "GhostReadyAt", siren = "SirenReadyAt", slowmo = "SlowReadyAt" }
+local ACTIVE_ATTR = { ghost = "GhostUntil", siren = "SirenUntil", slowmo = "SlowUntil" }
+local function chipState(chip, now: number)
+	local id = chip.Ability.Id
+	local active = ACTIVE_ATTR[id]
+	if active and (player:GetAttribute(active) or 0) > now then
+		return 0, 1, true
+	end
+	local ready = READY_ATTR[id]
+	if ready then
+		local left = (player:GetAttribute(ready) or 0) - now
+		return left > 0 and left or 0, chip.Ability.Cooldown
+	end
+	if id == "second" and player:GetAttribute("SecondChanceUsed") then
+		return 1, 1
+	end
+	return 0, 1
+end
+
+local function updateChips()
+	abilityRow.Visible = survival() and #chips > 0
+	if not abilityRow.Visible then
+		return
+	end
+	local now = os.clock()
+	for _, chip in ipairs(chips) do
+		local left, total, active = chipState(chip, now)
+		local used = chip.Ability.Id == "second" and left > 0
+		chip.Cover.Size = UDim2.fromScale(1, used and 1 or math.clamp(left / total, 0, 1))
+		chip.Count.Visible = left > 0 and not used
+		chip.Count.Text = tostring(math.ceil(left))
+		chip.Icon.ImageColor3 = active and C.Accent or C.Text
+		chip.Icon.ImageTransparency = (left > 0) and 0.6 or 0
+		chip.Face.BackgroundColor3 = active and C.Raised or C.Panel
+		if chip.Ability.Id == "perfect" then
+			chip.Badge.Visible = true
+			chip.Badge.Text = string.format("%d/%d", player:GetAttribute("PerfectStreak") or 0, chip.Ability.Streak)
+		end
+	end
+end
+RunService.RenderStepped:Connect(updateChips)
+
+Remotes.OrderAccepted.OnClientEvent:Connect(function(order)
+	if not order.Survival then
+		return
+	end
+	local ev = order.Event
+	if type(ev) == "table" and ev.Kind == "jam" then
+		task.delay(0, showNotice, "Engarrafamento no caminho: passe pelo corredor entre os carros", 4, "info", "alerta")
+	end
+end)
+Remotes.SurvivalUpdate.OnClientEvent:Connect(function(data)
+	if type(data) ~= "table" then
+		return
+	end
+	local order = data.OrderId and activeOrders[data.OrderId]
+	if order and data.DeadlineServerTime then
+		order.DeadlineServerTime = data.DeadlineServerTime
+		order.TimeAllowed = data.TimeAllowed or order.TimeAllowed
+	end
+	if data.Type == "SecondChance" then
+		showNotice(string.format("Segunda Chance! +%d s", data.Bonus or 0), 3, "good", "relogio")
+	elseif data.Type == "Blitz" then
+		if data.Fined then
+			flashManeuver("MULTA NA BLITZ!")
+			showNotice(string.format("Blitz: %d km/h (máx. %d). -%d s no relógio", data.Kmh or 0, data.Limit or 0, data.Penalty or 0), 3.5, "bad", "sirene")
+		else
+			flashManeuver("BLITZ: LIBERADO")
+		end
+	elseif data.Type == "Mission" then
+		local stars = data.Stars or 0
+		task.delay(1, showNotice, string.format("Missão concluída: %s  •  +%d %s", tostring(data.Text), stars, stars == 1 and "estrela" or "estrelas"), 4, "good", "estrela")
+	end
+end)
+
+-- Clima do servidor (WeatherManager): avisa quando a pista muda
+Workspace:GetAttributeChangedSignal("Clima"):Connect(function()
+	if gameMode() == "Menu" then
+		return
+	end
+	if Workspace:GetAttribute("Clima") == "Chuva" then
+		showNotice("Começou a chover: a moto freia e vira um pouco menos", 4, "info", "alerta")
+	else
+		showNotice("A chuva parou: pista seca de novo", 3, "info", "check")
+	end
+end)
+
+-- Menu: HUD desligado. Sobrevivência: placar no lugar do dinheiro, sem Oficina/Áreas e com Sair.
+local function applyMode()
+	local m = gameMode()
+	local surv = m == "Survival"
+	gui.Enabled = m ~= "Menu"
+	moneyText.Visible = not surv
+	scoreFrame.Visible = surv
+	shopHolder.Visible = not surv
+	areasHolder.Visible = not surv
+	quitHolder.Visible = surv
+	setQuitArmed(false)
+	refreshOffRoadFee()
+	refreshScore()
+	orderPanel.Size = UDim2.fromOffset(RIGHT_W, surv and 180 or 168)
+	deadlineBar.Visible = surv
+	if m == "Menu" then
+		table.clear(activeOrders)
+		currentOffer = nil
+		tutorialActive = false
+		for _, holder in ipairs({ offer, toast, notice, tutorial, maneuver }) do
+			holder.Visible = false
+		end
+		for _, name in ipairs({ "ShopGui", "AreasGui" }) do
+			local g = playerGui:FindFirstChild(name)
+			local w = g and g:FindFirstChild("Window")
+			if w then
+				w.Visible = false
+			end
+		end
+	else
+		startTutorial()
+	end
+	refreshOrderPanel()
+end
+player:GetAttributeChangedSignal("GameMode"):Connect(applyMode)
+applyMode()
+
+task.spawn(function()
+	for _ = 1, 30 do
+		local ok, state = pcall(function()
+			return Remotes.GetOrderState:InvokeServer()
+		end)
+		if ok and state then
+			for _, order in ipairs(state.Active) do
+				activeOrders[order.Id] = order
+			end
+			if state.Offer and not currentOffer then
+				showOffer(state.Offer)
+			else
+				refreshOrderPanel()
+			end
+			break
+		end
+		task.wait(1)
+	end
+	if player:GetAttribute("DataLoaded") and player:GetAttribute("DataSaving") == false then
+		showNotice("DataStore indisponível: o progresso desta sessão NÃO será salvo.", 6, "bad", "alerta")
+	end
+end)
+
+refreshOrderPanel()
+]]></ProtectedString>
+					<bool name="Disabled">false</bool>
+					<Content name="LinkedSource"><null></null></Content>
+					<token name="RunContext">0</token>
+					<string name="ScriptGuid">{5E6092CC-0517-4D71-819D-88753329E981}</string>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+					<bool name="DefinesCapabilities">false</bool>
+					<string name="Name">HUDController</string>
+					<BinaryString name="SerializedOverrides"></BinaryString>
+					<int64 name="SourceAssetId">-1</int64>
+					<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+				</Properties>
+			</Item>
+			<Item class="UIScale" referent="RBXEA428E5EFDC7481C83DF2CBB421D75EC">
+				<Properties>
+					<float name="Scale">1</float>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+					<bool name="DefinesCapabilities">false</bool>
+					<string name="Name">UIScale</string>
+					<BinaryString name="SerializedOverrides"></BinaryString>
+					<int64 name="SourceAssetId">-1</int64>
+					<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+				</Properties>
+			</Item>
+		</Item>
+		<Item class="ScreenGui" referent="RBX22AFFDC524EA40468492226AB0DED271">
+			<Properties>
+				<bool name="ClipToDeviceSafeArea">true</bool>
+				<int name="DisplayOrder">1</int>
+				<token name="SafeAreaCompatibility">1</token>
+				<token name="ScreenInsets">2</token>
+				<bool name="Enabled">false</bool>
+				<token name="InputSinkEnabled">0</token>
+				<bool name="ResetOnSpawn">false</bool>
+				<token name="ZIndexBehavior">1</token>
+				<bool name="AutoLocalize">true</bool>
+				<Ref name="RootLocalizationTable">null</Ref>
+				<token name="SelectionBehaviorDown">0</token>
+				<token name="SelectionBehaviorLeft">0</token>
+				<token name="SelectionBehaviorRight">0</token>
+				<token name="SelectionBehaviorUp">0</token>
+				<bool name="SelectionGroup">false</bool>
+				<BinaryString name="AttributesSerialize">AQAAAAwAAABNaW5Kb2dhZG9yZXMGAAAAAAAAAEA=</BinaryString>
+				<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+				<bool name="DefinesCapabilities">false</bool>
+				<string name="Name">LiveBoard</string>
+				<BinaryString name="SerializedOverrides"></BinaryString>
+				<int64 name="SourceAssetId">-1</int64>
+				<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+			</Properties>
+			<Item class="LocalScript" referent="RBX0806862651D64EFAA04D922B19824003">
+				<Properties>
+					<ProtectedString name="Source"><![CDATA[-- Placar ao vivo da Sobrevivência: quem está jogando agora no servidor e quantas entregas tem na partida.
+-- Só aparece com 2+ jogadores na Sobrevivência (sozinho não ocupa a tela). Lê atributos que o servidor já replica.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local gui = script.Parent
+local UI = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("UIKit"))
+local C, F, new = UI.Color, UI.Font, UI.new
+
+local TOUCH = UI.IsTouch()
+local M, W, ROW, HEAD = 16, 180, 26, 34
+local MAX_ROWS = 5
+
+for _, c in ipairs(gui:GetChildren()) do
+	if c:IsA("GuiObject") or c:IsA("UIScale") then
+		c:Destroy()
+	end
+end
+local uiScale = new("UIScale", { Parent = gui })
+
+local holder, face = UI.Panel({ Name = "Placar", Size = UDim2.fromOffset(W, HEAD), Position = UDim2.fromOffset(M, M + 50 + 12), Parent = gui })
+local dot = new("Frame", {
+	Name = "AoVivo", BackgroundColor3 = C.Accent, BorderSizePixel = 0, Size = UDim2.fromOffset(8, 8),
+	Position = UDim2.fromOffset(14, 13), ZIndex = 2, Parent = face,
+})
+new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = dot })
+UI.Text({ Text = "AO VIVO NO SERVIDOR", Font = F.Title, TextSize = 14, Transparency = UI.Muted, Position = UDim2.fromOffset(30, 7), Size = UDim2.new(1, -40, 0, 20), Parent = face })
+
+local rows = {}
+for i = 1, MAX_ROWS + 1 do
+	local y = HEAD + (i - 1) * ROW
+	local pos = UI.Text({ Font = F.Number, TextSize = 15, Transparency = UI.Muted, Position = UDim2.fromOffset(12, y), Size = UDim2.fromOffset(22, ROW), Parent = face })
+	local name = UI.Text({ Font = F.Text, TextSize = 15, Truncate = true, Position = UDim2.fromOffset(36, y), Size = UDim2.new(1, -86, 0, ROW), Parent = face })
+	local count = UI.Text({ Font = F.Number, TextSize = 17, XAlign = Enum.TextXAlignment.Right, Position = UDim2.new(1, -46, 0, y), Size = UDim2.fromOffset(34, ROW), Parent = face })
+	rows[i] = { Pos = pos, Name = name, Count = count }
+end
+
+local function playing(p: Player): boolean
+	return p:GetAttribute("GameMode") == "Survival"
+end
+
+local function layout()
+	uiScale.Scale = UI.ScaleFor(Workspace.CurrentCamera.ViewportSize, TOUCH)
+	-- no toque a barra de habilidades fica embaixo da carteira: o placar desce junto
+	local shift = (TOUCH and player:GetAttribute("Abilities")) and 120 or 0
+	holder.Position = UDim2.fromOffset(M, M + 50 + 12 + shift)
+end
+
+local function refresh()
+	local list = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		if playing(p) then
+			table.insert(list, p)
+		end
+	end
+	local show = playing(player) and #list >= (gui:GetAttribute("MinJogadores") or 2)
+	gui.Enabled = show
+	if not show then
+		return
+	end
+	table.sort(list, function(a, b)
+		local da, db = a:GetAttribute("SurvivalDeliveries") or 0, b:GetAttribute("SurvivalDeliveries") or 0
+		if da ~= db then
+			return da > db
+		end
+		return a.UserId < b.UserId
+	end)
+	-- os 5 primeiros e, se eu estiver fora deles, a minha linha no fim
+	local shown, mine = {}, nil
+	for i, p in ipairs(list) do
+		if p == player then
+			mine = i
+		end
+		if i <= MAX_ROWS then
+			table.insert(shown, { i, p })
+		end
+	end
+	if mine and mine > MAX_ROWS then
+		table.insert(shown, { mine, player })
+	end
+	for i, row in ipairs(rows) do
+		local entry = shown[i]
+		local visible = entry ~= nil
+		row.Pos.Visible, row.Name.Visible, row.Count.Visible = visible, visible, visible
+		if visible then
+			local rank, p = entry[1], entry[2]
+			local me = p == player
+			row.Pos.Text = tostring(rank)
+			row.Name.Text = p.DisplayName
+			row.Count.Text = tostring(p:GetAttribute("SurvivalDeliveries") or 0)
+			row.Name.TextColor3 = me and C.Accent or C.Text
+			row.Count.TextColor3 = me and C.Accent or C.Text
+		end
+	end
+	holder.Size = UDim2.fromOffset(W, HEAD + #shown * ROW + 8)
+	layout()
+end
+
+-- várias mudanças no mesmo quadro viram uma atualização só
+local pending = false
+local function schedule()
+	if not pending then
+		pending = true
+		task.defer(function()
+			pending = false
+			refresh()
+		end)
+	end
+end
+
+local function watch(p: Player)
+	p:GetAttributeChangedSignal("GameMode"):Connect(schedule)
+	p:GetAttributeChangedSignal("SurvivalDeliveries"):Connect(schedule)
+	schedule()
+end
+for _, p in ipairs(Players:GetPlayers()) do
+	watch(p)
+end
+Players.PlayerAdded:Connect(watch)
+Players.PlayerRemoving:Connect(schedule)
+player:GetAttributeChangedSignal("Abilities"):Connect(layout)
+gui:GetAttributeChangedSignal("MinJogadores"):Connect(schedule)
+Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(layout)
+layout()
+]]></ProtectedString>
+					<bool name="Disabled">false</bool>
+					<Content name="LinkedSource"><null></null></Content>
+					<token name="RunContext">0</token>
+					<string name="ScriptGuid">{7F74A515-33C9-419D-91D9-403108130220}</string>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+					<bool name="DefinesCapabilities">false</bool>
+					<string name="Name">LiveBoardController</string>
+					<BinaryString name="SerializedOverrides"></BinaryString>
+					<int64 name="SourceAssetId">-1</int64>
+					<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+				</Properties>
+			</Item>
+		</Item>
+		<Item class="ScreenGui" referent="RBX9845DE4D02094BB39C75D3EB6356988D">
+			<Properties>
+				<bool name="ClipToDeviceSafeArea">true</bool>
+				<int name="DisplayOrder">10</int>
+				<token name="SafeAreaCompatibility">1</token>
+				<token name="ScreenInsets">1</token>
+				<bool name="Enabled">true</bool>
+				<token name="InputSinkEnabled">0</token>
+				<bool name="ResetOnSpawn">false</bool>
+				<token name="ZIndexBehavior">1</token>
+				<bool name="AutoLocalize">true</bool>
+				<Ref name="RootLocalizationTable">null</Ref>
+				<token name="SelectionBehaviorDown">0</token>
+				<token name="SelectionBehaviorLeft">0</token>
+				<token name="SelectionBehaviorRight">0</token>
+				<token name="SelectionBehaviorUp">0</token>
+				<bool name="SelectionGroup">false</bool>
+				<BinaryString name="AttributesSerialize"></BinaryString>
+				<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+				<bool name="DefinesCapabilities">false</bool>
+				<string name="Name">MenuGui</string>
+				<BinaryString name="SerializedOverrides"></BinaryString>
+				<int64 name="SourceAssetId">-1</int64>
+				<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+			</Properties>
+			<Item class="LocalScript" referent="RBX119F752E99784BC8916B014DDC3CAC58">
+				<Properties>
+					<ProtectedString name="Source"><![CDATA[-- Menu inicial em estilo lobby (personagem + moto em destaque) e tela de resultado da Sobrevivência.
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local GuiService = game:GetService("GuiService")
+local Workspace = game:GetService("Workspace")
+local HttpService = game:GetService("HttpService")
+
+local player = Players.LocalPlayer
+local gui = script.Parent
+
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local GameConfig = require(Modules:WaitForChild("GameConfig"))
+local UpgradeConfig = require(Modules:WaitForChild("UpgradeConfig"))
+local AreaConfig = require(Modules:WaitForChild("AreaConfig"))
+local UI = require(Modules:WaitForChild("UIKit"))
+local CosmeticConfig = require(Modules:WaitForChild("CosmeticConfig"))
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local motoTemplate = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("MotoVitrine", 10)
+local vitrines = ReplicatedStorage.Assets:WaitForChild("MotoVitrines", 10) -- uma moto ancorada por modelo da Garagem
+if vitrines then
+	-- malhas e texturas das motos baixadas logo no começo (senão a 1ª prévia na Garagem aparece branca por alguns segundos)
+	task.spawn(function()
+		pcall(function()
+			game:GetService("ContentProvider"):PreloadAsync(vitrines:GetDescendants())
+		end)
+	end)
+end
+
+local C, F, new = UI.Color, UI.Font, UI.new
+local MUTED = UI.Muted
+local TOUCH = UI.IsTouch()
+local SURVIVAL = GameConfig.Survival
+local SIDE_W = 380
+local GARAGE_W = 440
+
+for _, child in ipairs(gui:GetChildren()) do
+	if child:IsA("GuiObject") or child:IsA("UIScale") then
+		child:Destroy()
+	end
+end
+local uiScale = new("UIScale", { Parent = gui })
+
+local function hlist(parent: Instance?, props: { [string]: any })
+	local frame = new("Frame", {
+		Name = props.Name or "Row",
+		BackgroundTransparency = 1,
+		AnchorPoint = props.AnchorPoint or Vector2.zero,
+		Position = props.Position or UDim2.new(),
+		Size = props.Size or UDim2.new(1, 0, 0, 22),
+		ZIndex = 2,
+		Parent = parent,
+	})
+	new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = props.Align or Enum.HorizontalAlignment.Left,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, props.Padding or 6),
+		Parent = frame,
+	})
+	return frame
+end
+
+local function column(name: string)
+	local frame = new("Frame", {
+		Name = name,
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(SIDE_W, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = gui,
+	})
+	new("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Bottom,
+		Padding = UDim.new(0, 12),
+		Parent = frame,
+	})
+	return frame
+end
+
+-- Botão sólido (verde = ação principal). Retorna (clique, texto, face, holder).
+local function button(props: { [string]: any })
+	local holder, face = UI.Panel({
+		Name = props.Name,
+		Size = props.Size,
+		Position = props.Position or UDim2.new(),
+		AnchorPoint = props.AnchorPoint or Vector2.zero,
+		Color = props.Primary and C.Accent or C.Raised,
+		Transparency = 0,
+		Shadow = props.Shadow == true,
+		Stroke = false,
+		Radius = props.Radius or 12,
+		LayoutOrder = props.LayoutOrder,
+		Parent = props.Parent,
+	})
+	holder.ZIndex = 3
+	local row = hlist(face, { Size = UDim2.fromScale(1, 1), Align = Enum.HorizontalAlignment.Center, Padding = 12 })
+	local label = UI.Text({
+		Text = props.Text,
+		Font = F.Title,
+		TextSize = props.TextSize or 20,
+		Color = props.Primary and C.AccentInk or C.Text,
+		Size = UDim2.fromOffset(0, props.TextSize and props.TextSize + 8 or 28),
+		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = 1,
+		Parent = row,
+	})
+	if props.Key then
+		UI.Keycap(props.Key, {
+			Gamepad = props.Pad,
+			LayoutOrder = 2,
+			Height = 24,
+			TextSize = 15,
+			Background = props.Primary and C.AccentInk or C.Panel,
+			Color = props.Primary and C.Accent or C.Text,
+			Parent = row,
+		})
+	end
+	return UI.Hit(holder, face), label, face, holder
+end
+
+------------------------------------------------------------------ fundo (legibilidade sobre a cena 3D)
+local function shade(name: string, anchorY: number, height: number, fromT: number, toT: number)
+	local frame = new("Frame", {
+		Name = name,
+		BackgroundColor3 = C.Panel,
+		BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0, anchorY),
+		Position = UDim2.fromScale(0, anchorY),
+		Size = UDim2.fromScale(1, height),
+		ZIndex = 0,
+		Parent = gui,
+	})
+	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new(fromT, toT), Parent = frame })
+	return frame
+end
+shade("TopShade", 0, 0.22, 0.3, 1)
+local bottomShade = shade("BottomShade", 1, 0.55, 1, 0.1)
+local dim = new("Frame", {
+	Name = "Dim",
+	BackgroundColor3 = C.Panel,
+	BackgroundTransparency = 0.35,
+	BorderSizePixel = 0,
+	Size = UDim2.fromScale(1, 1),
+	Visible = false,
+	ZIndex = 0,
+	Parent = gui,
+})
+
+------------------------------------------------------------------ topo: marca e perfil
+local brand = hlist(gui, { Name = "Brand", Size = UDim2.fromOffset(420, 54), Padding = 12 })
+local badge = new("Frame", {
+	Name = "Badge",
+	BackgroundColor3 = C.Accent,
+	Size = UDim2.fromOffset(50, 50),
+	LayoutOrder = 1,
+	ZIndex = 2,
+	Parent = brand,
+})
+new("UICorner", { CornerRadius = UDim.new(0, 13), Parent = badge })
+UI.IconImage("caixa", 30, C.AccentInk, {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	ZIndex = 3,
+	Parent = badge,
+})
+local brandText = new("Frame", {
+	Name = "Wordmark",
+	BackgroundTransparency = 1,
+	Size = UDim2.fromOffset(340, 54),
+	LayoutOrder = 2,
+	Parent = brand,
+})
+UI.Text({
+	Text = "DELIVERY RUSH",
+	Font = F.Display,
+	TextSize = 32,
+	Size = UDim2.new(1, 0, 0, 34),
+	Parent = brandText,
+})
+UI.Text({
+	Text = "ENTREGAS CONTRA O RELÓGIO",
+	Font = F.Title,
+	TextSize = 14,
+	Color = C.Accent,
+	Position = UDim2.fromOffset(2, 34),
+	Size = UDim2.new(1, 0, 0, 18),
+	Parent = brandText,
+})
+
+local chip, chipFace = UI.Panel({
+	Name = "Profile",
+	Size = UDim2.fromOffset(260, 62),
+	AnchorPoint = Vector2.new(1, 0),
+	Parent = gui,
+})
+local avatar = new("ImageLabel", {
+	Name = "Avatar",
+	BackgroundColor3 = C.Raised,
+	Size = UDim2.fromOffset(42, 42),
+	Position = UDim2.fromOffset(10, 10),
+	ZIndex = 2,
+	Parent = chipFace,
+})
+new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = avatar })
+UI.Text({
+	Text = player.DisplayName,
+	Font = F.Text,
+	TextSize = 18,
+	Position = UDim2.fromOffset(64, 9),
+	Size = UDim2.new(1, -136, 0, 24),
+	Truncate = true,
+	Parent = chipFace,
+})
+local chipRecord = UI.Text({
+	Font = F.Body,
+	TextSize = 15,
+	Transparency = MUTED,
+	Position = UDim2.fromOffset(64, 32),
+	Size = UDim2.new(1, -136, 0, 20),
+	Truncate = true,
+	Parent = chipFace,
+})
+task.spawn(function()
+	local ok, image = pcall(function()
+		return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+	end)
+	if ok then
+		avatar.Image = image
+	end
+end)
+
+------------------------------------------------------------------ esquerda: modo de jogo
+local leftCol = column("Modes")
+local modeLabel = UI.Text({
+	Text = "MODO DE JOGO",
+	Font = F.Title,
+	TextSize = 15,
+	Transparency = MUTED,
+	Size = UDim2.new(1, 0, 0, 20),
+	LayoutOrder = 1,
+	Parent = leftCol,
+})
+
+local function modeTile(props: { [string]: any })
+	local holder, face = UI.Panel({
+		Name = props.Name,
+		Size = UDim2.new(1, 0, 0, props.Height),
+		Transparency = props.Locked and 0.2 or 0.04,
+		LayoutOrder = props.Order,
+		Parent = leftCol,
+	})
+	local disc = new("Frame", {
+		Name = "Disc",
+		BackgroundColor3 = props.Locked and C.Raised or C.Accent,
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 16, 0.5, 0),
+		Size = UDim2.fromOffset(props.Disc, props.Disc),
+		ZIndex = 2,
+		Parent = face,
+	})
+	new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = disc })
+	UI.IconImage(props.Icon, math.floor(props.Disc * 0.5), props.Locked and C.Text or C.AccentInk, {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Transparency = props.Locked and 0.4 or 0,
+		ZIndex = 3,
+		Parent = disc,
+	})
+	local x = 16 + props.Disc + 14
+	UI.Text({
+		Text = props.Title,
+		Font = F.Title,
+		TextSize = props.TitleSize,
+		Transparency = props.Locked and 0.35 or 0,
+		YAlign = Enum.TextYAlignment.Bottom,
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, x, 0.5, 1),
+		Size = UDim2.new(1, -x - 120, 0, props.TitleSize + 6),
+		Parent = face,
+	})
+	UI.Text({
+		Text = props.Sub,
+		Font = F.Body,
+		TextSize = props.SubSize,
+		Transparency = props.Locked and 0.55 or 0.3,
+		YAlign = Enum.TextYAlignment.Top,
+		Position = UDim2.new(0, x, 0.5, 4),
+		Size = UDim2.new(1, -x - 16, 0, props.SubSize + 6),
+		Truncate = true,
+		Parent = face,
+	})
+	return holder, face
+end
+
+local survivalTile, survivalFace = modeTile({
+	Name = "Survival",
+	Order = 2,
+	Height = 96,
+	Disc = 56,
+	Icon = "relogio",
+	Title = "SOBREVIVÊNCIA",
+	TitleSize = 23,
+	Sub = "Entregas sem parar contra o relógio",
+	SubSize = 16,
+})
+local edge = survivalFace:FindFirstChild("Edge")
+if edge then
+	-- selecionado: contorno verde
+	edge.Color = C.Accent
+	edge.Transparency = 0
+	edge.Thickness = 2
+end
+UI.IconImage("check", 22, C.Accent, {
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -16, 0, 16),
+	ZIndex = 3,
+	Parent = survivalFace,
+})
+
+local storyTile, storyFace = modeTile({
+	Name = "Story",
+	Order = 3,
+	Height = 74,
+	Disc = 44,
+	Icon = "cadeado",
+	Title = "HISTÓRIA",
+	TitleSize = 20,
+	Sub = "Dinheiro, oficina e novos bairros",
+	SubSize = 15,
+	Locked = true,
+})
+local soonTag, soonFace = UI.Panel({
+	Name = "Soon",
+	Size = UDim2.fromOffset(104, 28),
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -14, 0, 14),
+	Color = C.Raised,
+	Transparency = 0,
+	Shadow = false,
+	Stroke = false,
+	Radius = 8,
+	Parent = storyFace,
+})
+soonTag.ZIndex = 3
+UI.Text({
+	Text = "EM BREVE",
+	Font = F.Title,
+	TextSize = 14,
+	XAlign = Enum.TextXAlignment.Center,
+	Size = UDim2.fromScale(1, 1),
+	Parent = soonFace,
+})
+UI.Hit(storyTile, storyFace).Activated:Connect(function()
+	UI.Show(soonTag, 1.6) -- ainda em desenvolvimento: só chama a atenção para o "EM BREVE"
+end)
+
+------------------------------------------------------------------ missões do dia (dão estrelas para a Garagem)
+local navMissionsBadge = nil -- contador "1/3" no botão MISSÕES (criado na navegação)
+local shortScreen = false -- tela baixa (celular deitado): linhas das missões mais finas e sem o modo História
+local garagePanel = nil -- criado depois do palco 3D (ver "garagem")
+local layoutGarage = nil
+local missionsCard, missionsFace = UI.Panel({
+	Name = "Missions",
+	Size = UDim2.new(1, 0, 0, 252),
+	LayoutOrder = 0,
+	Parent = leftCol,
+})
+UI.Text({
+	Text = "MISSÕES DO DIA",
+	Font = F.Title,
+	TextSize = 15,
+	Transparency = MUTED,
+	Position = UDim2.fromOffset(18, 14),
+	Size = UDim2.new(1, -150, 0, 20),
+	Parent = missionsFace,
+})
+
+-- estrela + número, alinhados à direita
+local function starCount(parent: Instance, position: UDim2, size: number)
+	local row = hlist(parent, {
+		Name = "Stars",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = position,
+		Size = UDim2.fromOffset(120, size + 6),
+		Align = Enum.HorizontalAlignment.Right,
+		Padding = 6,
+	})
+	UI.IconImage("estrela", size, C.Accent, { LayoutOrder = 1, Parent = row })
+	return UI.Text({
+		Font = F.Number,
+		TextSize = size + 2,
+		Size = UDim2.fromOffset(0, size + 6),
+		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = 2,
+		Parent = row,
+	})
+end
+local cardStars = starCount(missionsFace, UDim2.new(1, -18, 0, 11), 18)
+local chipStars = starCount(chipFace, UDim2.new(1, -14, 0, 18), 18) -- saldo sempre à vista no perfil
+-- lobby limpo: o modo vai junto do JOGAR e a História (em breve) sai do menu
+modeLabel.Visible = false
+survivalTile.Visible = false
+storyTile.Visible = false
+missionsCard.Visible = false
+
+local missionRows = {}
+for i = 1, 3 do
+	local row = new("Frame", { Name = "Mission" .. i, BackgroundTransparency = 1, ZIndex = 2, Parent = missionsFace })
+	local text = UI.Text({ Font = F.Body, TextSize = 16, Size = UDim2.new(1, -100, 0, 22), Truncate = true, Parent = row })
+	local count = UI.Text({
+		Font = F.Number,
+		TextSize = 16,
+		XAlign = Enum.TextXAlignment.Right,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -40, 0, 0),
+		Size = UDim2.fromOffset(56, 22),
+		Parent = row,
+	})
+	local reward = hlist(row, {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 0),
+		Size = UDim2.fromOffset(36, 22),
+		Align = Enum.HorizontalAlignment.Right,
+		Padding = 2,
+	})
+	local rewardText = UI.Text({
+		Font = F.Number,
+		TextSize = 15,
+		Color = C.Accent,
+		Size = UDim2.fromOffset(0, 22),
+		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = 1,
+		Parent = reward,
+	})
+	UI.IconImage("estrela", 14, C.Accent, { LayoutOrder = 2, Parent = reward })
+	local track = new("Frame", {
+		Name = "Track",
+		BackgroundColor3 = C.Raised,
+		BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0, 1),
+		Size = UDim2.new(1, 0, 0, 5),
+		ZIndex = 2,
+		Parent = row,
+	})
+	new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = track })
+	local fill = new("Frame", { Name = "Fill", BackgroundColor3 = C.Accent, BorderSizePixel = 0, Size = UDim2.fromScale(0, 1), ZIndex = 3, Parent = track })
+	new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = fill })
+	missionRows[i] = { Row = row, Text = text, Count = count, Reward = rewardText, Track = track, Fill = fill }
+end
+
+local resetText = UI.Text({
+	Font = F.Body,
+	TextSize = 14,
+	Transparency = MUTED,
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 18, 1, -14),
+	Size = UDim2.new(1, -200, 0, 20),
+	Truncate = true,
+	Parent = missionsFace,
+})
+local garageButton, _, _, garageButtonHolder = button({
+	Name = "GarageButton",
+	Text = "GARAGEM",
+	TextSize = 17,
+	Key = "G",
+	Pad = "Y",
+	Size = UDim2.fromOffset(164, 40),
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.new(1, -14, 1, -14),
+	Parent = missionsFace,
+})
+garageButtonHolder.Visible = false -- a Garagem agora fica na navegação
+resetText.Size = UDim2.new(1, -36, 0, 20)
+
+local function resetIn(): string
+	local reset = player:GetAttribute("MissionsReset")
+	if type(reset) ~= "number" then
+		return ""
+	end
+	local left = math.max(0, reset - Workspace:GetServerTimeNow())
+	if left >= 3600 then
+		return string.format("novas em %d h", math.floor(left / 3600))
+	end
+	return string.format("novas em %d min", math.max(1, math.ceil(left / 60)))
+end
+
+local function layoutMissions()
+	local rowH = shortScreen and 36 or 50
+	for i, r in ipairs(missionRows) do
+		r.Row.Position = UDim2.fromOffset(18, 44 + (i - 1) * rowH)
+		r.Row.Size = UDim2.new(1, -36, 0, rowH - 6)
+		r.Text.TextSize = shortScreen and 15 or 16
+		r.Track.Position = UDim2.new(0, 0, 1, shortScreen and -1 or -6)
+	end
+	missionsCard.Size = UDim2.new(1, 0, 0, 44 + #missionRows * rowH + 38)
+end
+
+local function refreshMissions()
+	local ok, list = pcall(function()
+		return HttpService:JSONDecode(player:GetAttribute("Missions") or "[]")
+	end)
+	local missions = ok and type(list) == "table" and list or {}
+	local done = 0
+	for i, r in ipairs(missionRows) do
+		local m = missions[i]
+		r.Row.Visible = m ~= nil
+		if m then
+			done += m.Done and 1 or 0
+			r.Text.Text = tostring(m.Text)
+			r.Text.TextTransparency = m.Done and 0.45 or 0
+			r.Count.Text = m.Done and "FEITA" or string.format("%d/%d", m.Progress or 0, m.Goal or 1)
+			r.Count.TextColor3 = m.Done and C.Accent or C.Text
+			r.Reward.Text = "+" .. tostring(m.Stars or 0)
+			r.Fill.Size = UDim2.fromScale(math.clamp((m.Progress or 0) / math.max(1, m.Goal or 1), 0, 1), 1)
+		end
+	end
+	cardStars.Text = tostring(player:GetAttribute("Stars") or 0)
+	chipStars.Text = cardStars.Text
+	resetText.Text = #missions > 0 and string.format("%d/%d feitas  •  %s", done, #missions, resetIn()) or ""
+	if navMissionsBadge then
+		navMissionsBadge.Text = #missions > 0 and string.format("%d/%d", done, #missions) or ""
+	end
+end
+player:GetAttributeChangedSignal("Missions"):Connect(refreshMissions)
+player:GetAttributeChangedSignal("Stars"):Connect(refreshMissions)
+refreshMissions()
+
+------------------------------------------------------------------ direita: modo + JOGAR (as regras viram o painel "Como jogar")
+local rightCol = column("Play")
+rightCol.AnchorPoint = Vector2.new(1, 1)
+
+local level = UpgradeConfig.Get(SURVIVAL.MotoLevel)
+local area = AreaConfig.Get(SURVIVAL.AreaId)
+local RULES = {
+	{ "relogio", string.format("Você começa com %d s no relógio", SURVIVAL.StartTime) },
+	{ "alerta", string.format("Cada entrega soma de %d a %d s", SURVIVAL.BonusStart, SURVIVAL.BonusMin) },
+	{ "pino", "A cidade enche: carros, gente e buracos" },
+	{ "raio", string.format("Moto de %d km/h  •  bairro %s", level.Speed * GameConfig.Moto.SpeedDisplayFactor, area and area.Name or "Centro") },
+}
+-- a regra dos controles segue o dispositivo do momento
+local function controlsRule(): string
+	return ({ Touch = "Botões na tela pilotam  •  GRAU dá turbo", Gamepad = "Analógico pilota  •  X empina e dá turbo" })[UI.InputKind()]
+		or "WASD pilota  •  SHIFT empina e dá turbo"
+end
+table.insert(RULES, { "seta", controlsRule(), Controls = true })
+local Creditos = require(Modules:WaitForChild("Creditos"))
+local CREDITS_Y = 48 + #RULES * 30 + 10
+local INFO_H = CREDITS_Y + 30 + #Creditos * 20 + 14
+local info, infoFace = UI.Panel({
+	Name = "Info",
+	Size = UDim2.new(1, 0, 0, INFO_H),
+	LayoutOrder = 1,
+	Visible = false,
+	Parent = leftCol,
+})
+-- em tela baixa (celular deitado) o painel não cabe inteiro: o conteúdo rola
+local infoBody = new("ScrollingFrame", {
+	Name = "Body",
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Size = UDim2.fromScale(1, 1),
+	CanvasSize = UDim2.fromOffset(0, INFO_H),
+	ScrollingDirection = Enum.ScrollingDirection.Y,
+	ScrollBarThickness = 4,
+	ScrollBarImageColor3 = C.Text,
+	ScrollBarImageTransparency = 0.6,
+	Parent = infoFace,
+})
+UI.Text({
+	Text = "COMO JOGAR",
+	Font = F.Title,
+	TextSize = 15,
+	Transparency = MUTED,
+	Position = UDim2.fromOffset(18, 14),
+	Size = UDim2.new(1, -36, 0, 20),
+	Parent = infoBody,
+})
+for i, rule in ipairs(RULES) do
+	local y = 42 + (i - 1) * 30
+	UI.IconImage(rule[1], 18, C.Accent, { Position = UDim2.fromOffset(18, y + 4), Parent = infoBody })
+	local ruleText = UI.Text({
+		Text = rule[2],
+		Font = F.Body,
+		TextSize = 16,
+		Transparency = 0.12,
+		Position = UDim2.fromOffset(46, y),
+		Size = UDim2.new(1, -60, 0, 26),
+		Truncate = true,
+		Parent = infoBody,
+	})
+	if rule.Controls then
+		pcall(function()
+			UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(function()
+				ruleText.Text = controlsRule()
+			end)
+		end)
+	end
+end
+
+-- créditos dos modelos 3D (licença CC BY): discretos, no pé do "Como jogar"
+UI.Text({
+	Text = "CRÉDITOS DOS MODELOS 3D (CC BY 4.0)",
+	Font = F.Title,
+	TextSize = 14,
+	Transparency = MUTED,
+	Position = UDim2.fromOffset(18, CREDITS_Y),
+	Size = UDim2.new(1, -36, 0, 20),
+	Parent = infoBody,
+})
+for i, c in ipairs(Creditos) do
+	UI.Text({
+		Text = string.format("%s: modelo de %s", c.Moto, c.Autor),
+		Font = F.Body,
+		TextSize = 14,
+		Transparency = 0.35,
+		Position = UDim2.fromOffset(18, CREDITS_Y + 6 + i * 20),
+		Size = UDim2.new(1, -36, 0, 18),
+		Truncate = true,
+		Parent = infoBody,
+	})
+end
+
+-- modo da partida logo acima do JOGAR
+local modeCaption = new("Frame", { Name = "Modo", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 48), LayoutOrder = 1, Parent = rightCol })
+UI.Text({
+	Text = "SOBREVIVÊNCIA",
+	Font = F.Title,
+	TextSize = 22,
+	XAlign = Enum.TextXAlignment.Right,
+	Size = UDim2.new(1, -4, 0, 26),
+	Parent = modeCaption,
+})
+UI.Text({
+	Text = string.format("Bairro %s  •  entregas contra o relógio", area and area.Name or "Centro"),
+	Font = F.Body,
+	TextSize = 15,
+	Transparency = MUTED,
+	XAlign = Enum.TextXAlignment.Right,
+	Position = UDim2.fromOffset(0, 26),
+	Size = UDim2.new(1, -4, 0, 20),
+	Parent = modeCaption,
+})
+
+local playButton, playLabel, playFace, playHolder = button({
+	Name = "PlayButton",
+	Text = "JOGAR",
+	TextSize = 32,
+	Key = "Enter",
+	Pad = "A",
+	Primary = true,
+	Shadow = true,
+	Radius = 14,
+	Size = UDim2.new(1, 0, 0, 76),
+	LayoutOrder = 2,
+	Parent = rightCol,
+})
+local playGlow = new("UIStroke", {
+	Color = C.Accent,
+	Thickness = 3,
+	Transparency = 0.5,
+	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+	Parent = playFace,
+})
+
+------------------------------------------------------------------ navegação: 3 botões de texto, um painel aberto por vez
+local openPanel = nil -- "missoes", "ajuda" ou nil
+local onPanelChanged = nil -- refaz o layout (definido no layout responsivo)
+local showGarage = nil -- definido junto das telas (showView)
+local navButtons = {}
+local nav = new("Frame", { Name = "Nav", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 3 * 48 + 2 * 6), LayoutOrder = 10, Parent = leftCol })
+new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6), Parent = nav })
+
+local function refreshNav()
+	for id, b in pairs(navButtons) do
+		local on = openPanel == id
+		b.Bar.Visible = on
+		b.Button.BackgroundTransparency = on and 0.08 or (b.Hover and 0.2 or 0.4)
+		b.Label.TextTransparency = (on or b.Hover) and 0 or 0.15
+	end
+end
+
+local function setPanel(id: string?)
+	openPanel = (openPanel ~= id) and id or nil
+	missionsCard.Visible = openPanel == "missoes"
+	info.Visible = openPanel == "ajuda"
+	for _, p in ipairs({ missionsCard, info }) do
+		if p.Visible then
+			UI.Show(p, 0.5)
+		end
+	end
+	refreshNav()
+	if onPanelChanged then
+		onPanelChanged()
+	end
+end
+
+local function navButton(id: string, text: string, order: number, onClick)
+	local b = new("TextButton", {
+		Name = id,
+		Text = "",
+		AutoButtonColor = false,
+		BackgroundColor3 = C.Panel,
+		BackgroundTransparency = 0.4,
+		Size = UDim2.new(0, 270, 0, 48),
+		LayoutOrder = order,
+		Parent = nav,
+	})
+	new("UICorner", { CornerRadius = UDim.new(0, 10), Parent = b })
+	local bar = new("Frame", {
+		Name = "Bar",
+		BackgroundColor3 = C.Accent,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(0, 10),
+		Size = UDim2.new(0, 4, 1, -20),
+		Visible = false,
+		ZIndex = 2,
+		Parent = b,
+	})
+	local label = UI.Text({ Text = text, Font = F.Title, TextSize = 20, Position = UDim2.fromOffset(20, 0), Size = UDim2.new(1, -90, 1, 0), Parent = b })
+	local badge = UI.Text({
+		Font = F.Number,
+		TextSize = 18,
+		Color = C.Accent,
+		XAlign = Enum.TextXAlignment.Right,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -16, 0, 0),
+		Size = UDim2.new(0, 70, 1, 0),
+		Parent = b,
+	})
+	local entry = { Button = b, Bar = bar, Label = label, Badge = badge, Hover = false }
+	navButtons[id] = entry
+	b.MouseEnter:Connect(function()
+		entry.Hover = true
+		refreshNav()
+	end)
+	b.MouseLeave:Connect(function()
+		entry.Hover = false
+		refreshNav()
+	end)
+	b.Activated:Connect(onClick)
+	return entry
+end
+
+navMissionsBadge = navButton("missoes", "MISSÕES", 1, function()
+	setPanel("missoes")
+end).Badge
+navButton("garagem", "GARAGEM", 2, function()
+	if showGarage then
+		showGarage()
+	end
+end).Badge.Text = TOUCH and "" or "G"
+navButton("ajuda", "COMO JOGAR", 3, function()
+	setPanel("ajuda")
+end)
+navButtons.garagem.Badge.TextColor3 = C.Text
+navButtons.garagem.Badge.TextTransparency = 0.5
+refreshNav()
+refreshMissions()
+
+------------------------------------------------------------------ resultado da partida
+local resultPanel, resultFace = UI.Panel({
+	Name = "Result",
+	Size = UDim2.fromOffset(480, 404),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.52),
+	Visible = false,
+	Parent = gui,
+})
+local function centered(props: { [string]: any })
+	props.XAlign = Enum.TextXAlignment.Center
+	props.Position = UDim2.fromOffset(24, props.Y)
+	props.Size = UDim2.new(1, -48, 0, props.H)
+	props.Parent = resultFace
+	return UI.Text(props)
+end
+centered({ Text = "FIM DE PARTIDA", Font = F.Title, TextSize = 15, Transparency = MUTED, Y = 24, H = 20 })
+local resultTitle = centered({ Font = F.Title, TextSize = 38, Y = 46, H = 44 })
+local resultReason = centered({ Font = F.Body, TextSize = 17, Transparency = MUTED, Y = 92, H = 24 })
+
+local stats = new("Frame", {
+	Name = "Stats",
+	BackgroundColor3 = C.Raised,
+	BackgroundTransparency = 0.35,
+	Position = UDim2.fromOffset(24, 134),
+	Size = UDim2.new(1, -48, 0, 120),
+	ZIndex = 2,
+	Parent = resultFace,
+})
+new("UICorner", { CornerRadius = UDim.new(0, 12), Parent = stats })
+new("Frame", {
+	Name = "Divider",
+	BackgroundColor3 = C.Text,
+	BackgroundTransparency = 0.88,
+	BorderSizePixel = 0,
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.new(0, 1, 1, -32),
+	ZIndex = 3,
+	Parent = stats,
+})
+local function statCell(x: number, label: string)
+	UI.Text({
+		Text = label,
+		Font = F.Title,
+		TextSize = 15,
+		Transparency = MUTED,
+		XAlign = Enum.TextXAlignment.Center,
+		Position = UDim2.new(x, 0, 0, 14),
+		Size = UDim2.new(0.5, 0, 0, 20),
+		ZIndex = 3,
+		Parent = stats,
+	})
+	return UI.Text({
+		Font = F.Number,
+		TextSize = 68,
+		XAlign = Enum.TextXAlignment.Center,
+		Position = UDim2.new(x, 0, 0, 36),
+		Size = UDim2.new(0.5, 0, 0, 72),
+		ZIndex = 3,
+		Parent = stats,
+	})
+end
+local resultDeliveries = statCell(0, "ENTREGAS")
+local resultBest = statCell(0.5, "RECORDE")
+
+local recordBadge = new("Frame", {
+	Name = "NewRecord",
+	BackgroundColor3 = C.Accent,
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 268),
+	Size = UDim2.fromOffset(0, 32),
+	AutomaticSize = Enum.AutomaticSize.X,
+	ZIndex = 2,
+	Parent = resultFace,
+})
+new("UICorner", { CornerRadius = UDim.new(0, 8), Parent = recordBadge })
+new("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 14), Parent = recordBadge })
+new("UIListLayout", {
+	FillDirection = Enum.FillDirection.Horizontal,
+	VerticalAlignment = Enum.VerticalAlignment.Center,
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	Padding = UDim.new(0, 8),
+	Parent = recordBadge,
+})
+UI.IconImage("estrela", 17, C.AccentInk, { LayoutOrder = 1, ZIndex = 3, Parent = recordBadge })
+UI.Text({
+	Text = "NOVO RECORDE",
+	Font = F.Title,
+	TextSize = 16,
+	Color = C.AccentInk,
+	Size = UDim2.fromOffset(0, 32),
+	AutomaticSize = Enum.AutomaticSize.X,
+	LayoutOrder = 2,
+	ZIndex = 3,
+	Parent = recordBadge,
+})
+local resultHint = centered({ Font = F.Body, TextSize = 16, Transparency = MUTED, Y = 272, H = 24 })
+
+local againButton, againLabel = button({
+	Name = "Again",
+	Text = "JOGAR DE NOVO",
+	TextSize = 22,
+	Key = "Enter",
+	Pad = "A",
+	Primary = true,
+	Size = UDim2.new(1, -48 - 150 - 12, 0, 64),
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 24, 1, -24),
+	Parent = resultFace,
+})
+local backButton = button({
+	Name = "Back",
+	Text = "MENU",
+	TextSize = 20,
+	Key = "M",
+	Pad = "B",
+	Size = UDim2.fromOffset(150, 64),
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.new(1, -24, 1, -24),
+	Parent = resultFace,
+})
+
+local REASONS = {
+	tempo = { Title = "TEMPO ESGOTADO", Text = "O relógio zerou antes da entrega.", Color = C.Red },
+	desistiu = { Title = "PARTIDA ENCERRADA", Text = "Você saiu da partida.", Color = C.Text },
+	invalida = { Title = "ENTREGA INVALIDADA", Text = "O servidor detectou um movimento impossível.", Color = C.Red },
+}
+
+------------------------------------------------------------------ layout responsivo
+local compact = false
+local view = "main"
+local function layout()
+	local vp = Workspace.CurrentCamera.ViewportSize
+	uiScale.Scale = UI.ScaleFor(vp, TOUCH)
+	local w = vp.X / uiScale.Scale
+	local h = vp.Y / uiScale.Scale
+	compact = w < 940
+	shortScreen = h < 600
+	local m = compact and 20 or 32
+	-- abaixo da barra do Roblox (botão do menu, chat, microfone)
+	local top = math.max(m - 6, GuiService.TopbarInset.Max.Y / uiScale.Scale + 10)
+	brand.Position = UDim2.fromOffset(m, top)
+	-- tela baixa: com um painel aberto a marca sai do caminho
+	brand.Visible = not ((compact and (shortScreen or view == "garage")) or (shortScreen and openPanel ~= nil))
+	layoutMissions()
+	local navH = shortScreen and 40 or 48
+	nav.Size = UDim2.new(1, 0, 0, 3 * navH + 2 * 6)
+	local panelRoom = h - top - m - (3 * navH + 2 * 6) - 12 - (compact and 76 + 12 or 0)
+	info.Size = UDim2.new(1, 0, 0, math.clamp(INFO_H, 120, math.max(120, panelRoom)))
+	if layoutGarage then
+		layoutGarage(w, h, m, top)
+	end
+	chip.Position = UDim2.new(1, -m, 0, top)
+	chip.Size = UDim2.fromOffset(compact and 220 or 260, 62)
+	rightCol.Visible = view == "main" and not compact
+	for _, b in pairs(navButtons) do
+		b.Button.Size = compact and UDim2.new(1, 0, 0, navH) or UDim2.new(0, 270, 0, navH)
+	end
+	if compact then
+		-- tela estreita: uma coluna só, centralizada embaixo
+		leftCol.Size = UDim2.fromOffset(math.min(460, w - 2 * m), 0)
+		leftCol.AnchorPoint = Vector2.new(0.5, 1)
+		leftCol.Position = UDim2.new(0.5, 0, 1, -m)
+		playHolder.Parent = leftCol
+		playHolder.LayoutOrder = 20
+	else
+		leftCol.Size = UDim2.fromOffset(SIDE_W, 0)
+		leftCol.AnchorPoint = Vector2.new(0, 1)
+		leftCol.Position = UDim2.new(0, m, 1, -m)
+		rightCol.Position = UDim2.new(1, -m, 1, -m)
+		playHolder.Parent = rightCol
+		playHolder.LayoutOrder = 2
+	end
+	resultPanel.Size = UDim2.fromOffset(math.min(480, w - 2 * m), 404)
+end
+onPanelChanged = layout
+Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(layout)
+GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(layout)
+layout()
+
+------------------------------------------------------------------ palco 3D: personagem + moto, câmera de vitrine
+local FACING = Vector3.new(1, 0, 1).Unit -- de costas para a praça do spawn
+local stage = nil
+local applyStage = nil -- visual da Garagem na moto do palco (ver "garagem")
+local placedCharacter = nil
+local stageClock = 0
+local hideClock = 0
+
+local dof = new("DepthOfFieldEffect", {
+	Name = "MenuFocus",
+	FarIntensity = 0.45,
+	FocusDistance = 16,
+	InFocusRadius = 8,
+	NearIntensity = 0,
+})
+local blur = new("BlurEffect", { Name = "MenuBlur", Size = 0 })
+
+local function stageOrigin(): Vector3
+	local spawnPart = Workspace:FindFirstChildWhichIsA("SpawnLocation")
+	return spawnPart and spawnPart.Position or Vector3.zero
+end
+
+local function groundY(pos: Vector3, ignore: { Instance }): number
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = ignore
+	local hit = Workspace:Raycast(pos + Vector3.new(0, 25, 0), Vector3.new(0, -80, 0), params)
+	return hit and hit.Position.Y or pos.Y
+end
+
+local function ignoreList(): { Instance }
+	local list = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.Character then
+			table.insert(list, p.Character)
+		end
+	end
+	for _, name in ipairs({ "Motos", "LocalWorldFX" }) do
+		local folder = Workspace:FindFirstChild(name)
+		if folder then
+			table.insert(list, folder)
+		end
+	end
+	return list
+end
+
+local function clearStage()
+	if stage then
+		stage.Model:Destroy()
+		stage = nil
+	end
+	placedCharacter = nil
+end
+
+local function buildStage()
+	clearStage()
+	local origin = stageOrigin()
+	local ignore = ignoreList()
+	local floor = groundY(origin, ignore)
+	local base = CFrame.lookAt(Vector3.new(origin.X, floor, origin.Z), Vector3.new(origin.X, floor, origin.Z) + FACING)
+	local model = new("Model", { Name = "MenuStage" })
+	-- luz de estúdio na frente (funciona também à noite) e um contorno verde atrás
+	local key = new("Part", {
+		Name = "KeyLight",
+		Anchored = true,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		Transparency = 1,
+		Size = Vector3.new(1, 1, 1),
+		CFrame = CFrame.lookAt((base * CFrame.new(-1.5, 9, -14)).Position, (base * CFrame.new(-2, 2.5, 0)).Position),
+		Parent = model,
+	})
+	new("SpotLight", { Brightness = 2.2, Range = 40, Angle = 55, Color = Color3.fromRGB(255, 244, 230), Shadows = true, Parent = key })
+	local rim = new("Part", {
+		Name = "RimLight",
+		Anchored = true,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		Transparency = 1,
+		Size = Vector3.new(1, 1, 1),
+		CFrame = base * CFrame.new(-2, 3, 5),
+		Parent = model,
+	})
+	new("PointLight", { Brightness = 1.4, Range = 12, Color = C.Accent, Parent = rim })
+	model.Parent = Workspace
+	stage = { Model = model, Base = base }
+	if applyStage then
+		applyStage() -- coloca a moto escolhida na Garagem
+	end
+end
+
+-- moto à esquerda do personagem (direita da tela), com o bico virado para a câmera e apoiada no chão
+local function placeMoto(skin: string)
+	if stage.Moto then
+		stage.Moto:Destroy()
+		stage.Moto = nil
+	end
+	stage.Skin = skin
+	local template = (vitrines and vitrines:FindFirstChild(skin)) or motoTemplate
+	if not template then
+		return
+	end
+	local moto = template:Clone()
+	local spot = (stage.Base * CFrame.new(-5, 0, 1.2)).Position
+	local y = groundY(spot, ignoreList())
+	moto:PivotTo(CFrame.new(spot.X, y + 4, spot.Z) * (stage.Base * CFrame.Angles(0, math.rad(-32), 0)).Rotation)
+	local cf, size = moto:GetBoundingBox()
+	moto:PivotTo(moto:GetPivot() - Vector3.new(0, cf.Position.Y - size.Y / 2 - y, 0))
+	moto.Parent = stage.Model
+	stage.Moto = moto
+end
+
+local function placeCharacter()
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or not stage or placedCharacter == character then
+		return
+	end
+	local spot = (stage.Base * CFrame.new(1.2, 0, 0)).Position
+	if (root.Position - spot).Magnitude > 40 then
+		return -- longe do palco (ainda voltando ao spawn): o servidor recarrega o personagem
+	end
+	local p = Vector3.new(spot.X, root.Position.Y, spot.Z)
+	root.AssemblyLinearVelocity = Vector3.zero
+	root.CFrame = CFrame.lookAt(p, p + FACING)
+	placedCharacter = character
+end
+
+-- Outros jogadores no menu ficam no mesmo spawn: some com eles daqui para o palco ficar limpo
+local function hideOthers(hide: boolean)
+	for _, other in ipairs(Players:GetPlayers()) do
+		local character = other ~= player and other.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if root then
+			local near = hide and stage and (root.Position - stage.Base.Position).Magnitude < 30
+			for _, d in ipairs(character:GetDescendants()) do
+				if d:IsA("BasePart") or d:IsA("Decal") then
+					d.LocalTransparencyModifier = near and 1 or 0
+				end
+			end
+		end
+	end
+end
+
+local missionClock = 0
+local function stageStep(dt: number)
+	if not stage then
+		buildStage()
+	end
+	stageClock += dt
+	hideClock += dt
+	if hideClock > 0.5 then
+		hideClock = 0
+		placeCharacter()
+		hideOthers(true)
+	end
+	missionClock += dt
+	if missionClock > 20 then
+		missionClock = 0
+		refreshMissions() -- contagem até as missões novas
+	end
+	local camera = Workspace.CurrentCamera
+	camera.CameraType = Enum.CameraType.Scriptable
+	camera.FieldOfView = compact and 52 or 42
+	local base = stage.Base
+	local focus = (base * CFrame.new(-1.9, 2.8, 0)).Position
+	local dist = compact and 19 or 17
+	local sway = math.sin(stageClock * 0.2) * math.rad(9)
+	local dir = (base * CFrame.Angles(0, math.rad(8) + sway, 0)).LookVector
+	local eye = focus + dir * dist + Vector3.new(0, 2.2, 0)
+	-- mira abaixo do centro: personagem e moto sobem na tela e ficam livres dos painéis de baixo
+	camera.CFrame = CFrame.lookAt(eye, focus - Vector3.new(0, compact and 2.4 or 1.6, 0))
+	dof.FocusDistance = dist
+	local ready = player:GetAttribute("GameMode") == "Menu"
+	playGlow.Transparency = ready and (0.45 + 0.35 * math.sin(stageClock * 2.6)) or 1
+end
+
+------------------------------------------------------------------ garagem: visuais da moto comprados com as estrelas das missões
+local garageFace
+garagePanel, garageFace = UI.Panel({
+	Name = "Garage",
+	Size = UDim2.fromOffset(GARAGE_W, 560),
+	AnchorPoint = Vector2.new(0, 1),
+	Visible = false,
+	Parent = gui,
+})
+UI.Text({
+	Text = "GARAGEM",
+	Font = F.Title,
+	TextSize = 28,
+	Position = UDim2.fromOffset(24, 20),
+	Size = UDim2.new(1, -48, 0, 34),
+	Parent = garageFace,
+})
+local garageStars = starCount(garageFace, UDim2.new(1, -24, 0, 24), 20)
+local garageSub = UI.Text({
+	Text = "Ganhe estrelas nas missões do dia",
+	Font = F.Body,
+	TextSize = 15,
+	Transparency = MUTED,
+	Position = UDim2.fromOffset(24, 58),
+	Size = UDim2.new(1, -48, 0, 20),
+	Parent = garageFace,
+})
+local tabsRow = hlist(garageFace, { Name = "Tabs", Position = UDim2.fromOffset(24, 92), Size = UDim2.new(1, -48, 0, 40), Padding = 8 })
+local grid = new("ScrollingFrame", {
+	Name = "Grid",
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	CanvasSize = UDim2.new(),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	ScrollingDirection = Enum.ScrollingDirection.Y,
+	ScrollBarThickness = 4,
+	ScrollBarImageColor3 = C.Text,
+	ScrollBarImageTransparency = 0.7,
+	ZIndex = 2,
+	Parent = garageFace,
+})
+new("UIGridLayout", {
+	CellSize = UDim2.new(1 / 2, -6, 0, 104),
+	CellPadding = UDim2.fromOffset(12, 12),
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	Parent = grid,
+})
+new("UIPadding", { PaddingTop = UDim.new(0, 2), PaddingLeft = UDim.new(0, 2), PaddingRight = UDim.new(0, 8), Parent = grid })
+local garageBack = button({
+	Name = "GarageBack",
+	Text = "VOLTAR",
+	TextSize = 20,
+	Key = "M",
+	Pad = "B",
+	Size = UDim2.new(1, -48, 0, 56),
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 24, 1, -24),
+	Parent = garageFace,
+})
+
+layoutGarage = function(w: number, h: number, m: number, top: number)
+	garagePanel.Size = UDim2.fromOffset(math.min(GARAGE_W, w - 2 * m), shortScreen and h - top - m or math.min(600, h - top - m - 64))
+	garagePanel.Position = UDim2.new(0, m, 1, -m) -- à esquerda: a moto do palco fica à vista
+	garageSub.Visible = not shortScreen
+	local tabsY = shortScreen and 60 or 92
+	tabsRow.Position = UDim2.fromOffset(24, tabsY)
+	grid.Position = UDim2.fromOffset(24, tabsY + 54)
+	grid.Size = UDim2.new(1, -40, 1, -(tabsY + 54) - 96)
+end
+
+local currentTab = CosmeticConfig.Categories[1].Id
+local armed = nil -- item esperando o 2º toque para comprar
+local preview = {} -- [categoria] = item mostrado na moto do palco antes de comprar
+local tabButtons, cards = {}, {}
+
+local function equippedId(category: string): string
+	return player:GetAttribute("Equip_" .. category) or CosmeticConfig.Default(category)
+end
+
+local function ownsItem(item): boolean
+	return item.Cost == 0 or table.find(string.split(player:GetAttribute("CosmeticsOwned") or "", ","), item.Id) ~= nil
+end
+
+applyStage = function()
+	if not stage then
+		return
+	end
+	local skin = CosmeticConfig.SkinOf(preview.Moto or equippedId("Moto"))
+	if stage.Skin ~= skin then
+		placeMoto(skin)
+	end
+end
+
+local renderGarage
+-- Já é dele: usa. Não é: 1º toque mostra na moto, 2º toque compra (se tiver estrelas). Quem confere é o servidor.
+local function onCard(item)
+	local category = item.Category
+	if ownsItem(item) then
+		armed, preview[category] = nil, nil
+		if equippedId(category) ~= item.Id then
+			Remotes.RequestCosmetic:FireServer("equip", item.Id)
+		end
+	elseif armed == item.Id then
+		armed, preview[category] = nil, nil
+		Remotes.RequestCosmetic:FireServer("buy", item.Id)
+	else
+		preview[category] = item.Id
+		armed = (player:GetAttribute("Stars") or 0) >= item.Cost and item.Id or nil
+	end
+	applyStage()
+	renderGarage()
+end
+
+renderGarage = function()
+	local stars = player:GetAttribute("Stars") or 0
+	garageStars.Text = tostring(stars)
+	for id, tab in pairs(tabButtons) do
+		local on = id == currentTab
+		tab.Face.BackgroundColor3 = on and C.Accent or C.Raised
+		tab.Label.TextColor3 = on and C.AccentInk or C.Text
+	end
+	for _, card in ipairs(cards) do
+		card:Destroy()
+	end
+	table.clear(cards)
+	local category = CosmeticConfig.GetCategory(currentTab)
+	for i, item in ipairs(category.Items) do
+		local equipped = equippedId(category.Id) == item.Id
+		local owned = ownsItem(item)
+		local holder, face = UI.Panel({ Name = item.Id, Color = C.Raised, Transparency = 0.25, Shadow = false, LayoutOrder = i, Parent = grid })
+		local edge = face:FindFirstChild("Edge")
+		if edge and (equipped or preview[category.Id] == item.Id) then
+			edge.Color = C.Accent
+			edge.Transparency = equipped and 0 or 0.4
+			edge.Thickness = 2
+		end
+		local swatch = new("Frame", {
+			Name = "Swatch",
+			BackgroundColor3 = item.Color or C.Panel,
+			Position = UDim2.fromOffset(12, 12),
+			Size = UDim2.fromOffset(34, 34),
+			ZIndex = 3,
+			Parent = face,
+		})
+		new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = swatch })
+		new("UIStroke", { Color = C.Text, Transparency = 0.8, Parent = swatch })
+		if item.Rainbow then
+			swatch.BackgroundColor3 = Color3.new(1, 1, 1)
+			new("UIGradient", { Color = CosmeticConfig.Rainbow, Rotation = 45, Parent = swatch })
+		elseif item.Icon then
+			UI.IconImage(item.Icon, 18, C.Text, {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Transparency = 0.2,
+				ZIndex = 4,
+				Parent = swatch,
+			})
+		end
+		UI.Text({
+			Text = item.Name,
+			Font = F.Text,
+			TextSize = 16,
+			Position = UDim2.fromOffset(12, 54),
+			Size = UDim2.new(1, -24, 0, 22),
+			Truncate = true,
+			ZIndex = 3,
+			Parent = face,
+		})
+		local status = hlist(face, { Name = "Status", Position = UDim2.fromOffset(12, 80), Size = UDim2.new(1, -24, 0, 22), Padding = 4 })
+		status.ZIndex = 3
+		local text, color, fade, star = "", C.Text, 0, false
+		if equipped then
+			text, color = "EM USO", C.Accent
+		elseif owned then
+			text, fade = "USAR", 0.3
+		elseif armed == item.Id then
+			text, color, star = "COMPRAR " .. item.Cost, C.Accent, true
+		else
+			text, star = tostring(item.Cost), true
+			fade = stars >= item.Cost and 0 or 0.55
+		end
+		UI.Text({
+			Text = text,
+			Font = F.Title,
+			TextSize = 14,
+			Color = color,
+			Transparency = fade,
+			Size = UDim2.fromOffset(0, 22),
+			AutomaticSize = Enum.AutomaticSize.X,
+			LayoutOrder = 1,
+			ZIndex = 3,
+			Parent = status,
+		})
+		if star then
+			UI.IconImage("estrela", 14, color, { Transparency = fade, LayoutOrder = 2, ZIndex = 3, Parent = status })
+		end
+		UI.Hit(holder, face).Activated:Connect(function()
+			onCard(item)
+		end)
+		table.insert(cards, holder)
+	end
+end
+
+for i, cat in ipairs(CosmeticConfig.Categories) do
+	local hit, label, face = button({ Name = cat.Id, Text = cat.Name, TextSize = 15, Size = UDim2.fromOffset(100, 40), Radius = 10, LayoutOrder = i, Parent = tabsRow })
+	tabButtons[cat.Id] = { Face = face, Label = label }
+	hit.Activated:Connect(function()
+		currentTab = cat.Id
+		armed = nil
+		renderGarage()
+	end)
+end
+
+------------------------------------------------------------------ estado
+local menuOpen = false
+local pending = false
+local awaitingMenu = false -- a partida acabou e o servidor ainda vai trocar o modo para "Menu"
+local controls = nil
+
+local function refreshRecord()
+	local best = player:GetAttribute("SurvivalBest") or 0
+	chipRecord.Text = string.format("Recorde: %d %s", best, best == 1 and "entrega" or "entregas")
+end
+player:GetAttributeChangedSignal("SurvivalBest"):Connect(refreshRecord)
+refreshRecord()
+
+local function refreshButtons()
+	local ready = player:GetAttribute("GameMode") == "Menu"
+	playLabel.Text = pending and "ENTRANDO..." or (ready and "JOGAR" or "CARREGANDO")
+	againLabel.Text = pending and "ENTRANDO..." or "JOGAR DE NOVO"
+end
+
+local function setControls()
+	if controls then
+		if menuOpen then
+			controls:Disable()
+		else
+			controls:Enable()
+		end
+	end
+end
+
+local SLIDE = TweenInfo.new(0.5, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out)
+local function slideIn(frame: GuiObject, dx: number, dy: number)
+	if UI.ReducedMotion() then
+		return
+	end
+	local final = frame.Position
+	frame.Position = final + UDim2.fromOffset(dx, dy)
+	TweenService:Create(frame, SLIDE, { Position = final }):Play()
+end
+
+local function showView(name: string)
+	view = name
+	local main = name == "main"
+	local result = name == "result"
+	layout()
+	leftCol.Visible = main
+	chip.Visible = main
+	bottomShade.Visible = main
+	dim.Visible = result
+	resultPanel.Visible = result
+	garagePanel.Visible = name == "garage"
+	TweenService:Create(blur, TweenInfo.new(0.35), { Size = result and 14 or 0 }):Play()
+	if name ~= "garage" then
+		armed = nil
+		table.clear(preview)
+		applyStage()
+	end
+	if main then
+		slideIn(leftCol, -60, 0)
+		slideIn(rightCol, 60, 0)
+		slideIn(chip, 0, -30)
+		refreshNav()
+	elseif result then
+		UI.Show(resultPanel, 1.2)
+	else
+		renderGarage()
+		UI.Show(garagePanel, 0.8)
+		slideIn(garagePanel, -60, 0)
+	end
+end
+
+showGarage = function()
+	showView("garage")
+end
+
+local function setMenuOpen(open: boolean)
+	if open == menuOpen then
+		return
+	end
+	menuOpen = open
+	gui.Enabled = open
+	if open then
+		dof.Parent = Workspace.CurrentCamera
+		blur.Parent = Workspace.CurrentCamera
+		RunService:BindToRenderStep("MenuCamera", Enum.RenderPriority.Camera.Value + 5, stageStep)
+		showView(view)
+	else
+		RunService:UnbindFromRenderStep("MenuCamera")
+		dof.Parent = nil
+		blur.Parent = nil
+		hideOthers(false)
+		clearStage()
+		local camera = Workspace.CurrentCamera
+		camera.CameraType = Enum.CameraType.Custom
+		camera.FieldOfView = GameConfig.Camera.BaseFOV
+		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			camera.CameraSubject = humanoid
+		end
+	end
+	setControls()
+end
+
+local function refresh()
+	local mode = player:GetAttribute("GameMode")
+	if mode == "Menu" then
+		awaitingMenu = false
+	end
+	local inGame = mode == "Survival" or mode == "Story"
+	if inGame and not awaitingMenu then
+		pending = false
+		setMenuOpen(false)
+	else
+		setMenuOpen(true)
+	end
+	refreshButtons()
+end
+player:GetAttributeChangedSignal("GameMode"):Connect(refresh)
+player.CharacterAdded:Connect(function()
+	placedCharacter = nil
+end)
+
+local function startSurvival()
+	if not menuOpen or pending or player:GetAttribute("GameMode") ~= "Menu" then
+		return
+	end
+	pending = true
+	awaitingMenu = false
+	refreshButtons()
+	Remotes.RequestStartSurvival:FireServer()
+	task.delay(4, function()
+		if pending then
+			pending = false
+			refreshButtons()
+		end
+	end)
+end
+
+playButton.Activated:Connect(startSurvival)
+againButton.Activated:Connect(startSurvival)
+backButton.Activated:Connect(function()
+	showView("main")
+end)
+garageButton.Activated:Connect(function()
+	showView("garage")
+end)
+garageBack.Activated:Connect(function()
+	showView("main")
+end)
+for _, name in ipairs({ "Stars", "CosmeticsOwned", "Equip_Moto" }) do
+	player:GetAttributeChangedSignal(name):Connect(function()
+		if view == "garage" then
+			renderGarage()
+		end
+		applyStage()
+	end)
+end
+
+Remotes.SurvivalEnded.OnClientEvent:Connect(function(result)
+	local reason = REASONS[result.Reason] or REASONS.tempo
+	local deliveries = result.Deliveries or 0
+	resultTitle.Text = reason.Title
+	resultTitle.TextColor3 = reason.Color
+	resultReason.Text = reason.Text
+	resultDeliveries.Text = tostring(deliveries)
+	resultBest.Text = tostring(result.Best or 0)
+	resultBest.TextColor3 = result.NewRecord and C.Accent or C.Text
+	recordBadge.Visible = result.NewRecord == true
+	resultHint.Visible = not result.NewRecord
+	local missing = (result.Best or 0) - deliveries
+	if (result.Best or 0) == 0 then
+		resultHint.Text = "Faça uma entrega para marcar seu primeiro recorde"
+	elseif missing <= 0 then
+		resultHint.Text = "Igualou o seu recorde!"
+	else
+		resultHint.Text = string.format("Faltaram %d %s para o recorde", missing, missing == 1 and "entrega" or "entregas")
+	end
+	awaitingMenu = player:GetAttribute("GameMode") ~= "Menu"
+	view = "result"
+	if menuOpen then
+		showView("result")
+	else
+		setMenuOpen(true)
+	end
+end)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed or not menuOpen then
+		return
+	end
+	local key = input.KeyCode
+	if key == Enum.KeyCode.Return or key == Enum.KeyCode.KeypadEnter or key == Enum.KeyCode.ButtonA then
+		startSurvival()
+	elseif (key == Enum.KeyCode.M or key == Enum.KeyCode.ButtonB) and view ~= "main" then
+		showView("main")
+	elseif (key == Enum.KeyCode.M or key == Enum.KeyCode.ButtonB) and openPanel then
+		setPanel(openPanel) -- fecha o painel aberto
+	elseif (key == Enum.KeyCode.G or key == Enum.KeyCode.ButtonY) and view == "main" then
+		showView("garage")
+	end
+end)
+
+-- Sem andar a pé enquanto o menu está aberto
+task.spawn(function()
+	local moduleScript = player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule", 10)
+	if not moduleScript then
+		return
+	end
+	local ok, playerModule = pcall(require, moduleScript)
+	if ok and playerModule then
+		controls = playerModule:GetControls()
+		setControls()
+	end
+end)
+
+gui.Enabled = false
+refresh()
+]]></ProtectedString>
+					<bool name="Disabled">false</bool>
+					<Content name="LinkedSource"><null></null></Content>
+					<token name="RunContext">0</token>
+					<string name="ScriptGuid">{6D59A5A6-E33B-41B9-A771-D6D518A303D3}</string>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+					<bool name="DefinesCapabilities">false</bool>
+					<string name="Name">MenuController</string>
+					<BinaryString name="SerializedOverrides"></BinaryString>
+					<int64 name="SourceAssetId">-1</int64>
+					<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+				</Properties>
+			</Item>
+		</Item>
+		<Item class="ScreenGui" referent="RBX8AE2B6A7F2FB4BB39C164BB0D212B307">
+			<Properties>
+				<bool name="ClipToDeviceSafeArea">true</bool>
+				<int name="DisplayOrder">5</int>
+				<token name="SafeAreaCompatibility">1</token>
+				<token name="ScreenInsets">2</token>
+				<bool name="Enabled">true</bool>
+				<token name="InputSinkEnabled">0</token>
+				<bool name="ResetOnSpawn">false</bool>
+				<token name="ZIndexBehavior">1</token>
+				<bool name="AutoLocalize">true</bool>
+				<Ref name="RootLocalizationTable">null</Ref>
+				<token name="SelectionBehaviorDown">0</token>
+				<token name="SelectionBehaviorLeft">0</token>
+				<token name="SelectionBehaviorRight">0</token>
+				<token name="SelectionBehaviorUp">0</token>
+				<bool name="SelectionGroup">false</bool>
+				<BinaryString name="AttributesSerialize"></BinaryString>
+				<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+				<bool name="DefinesCapabilities">false</bool>
+				<string name="Name">ShopGui</string>
+				<BinaryString name="SerializedOverrides"></BinaryString>
+				<int64 name="SourceAssetId">-1</int64>
+				<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+			</Properties>
+			<Item class="LocalScript" referent="RBXC65BF07AB31C4587B8B95E7880EEECA1">
+				<Properties>
+					<ProtectedString name="Source"><![CDATA[-- Janela da Oficina (upgrades). Só envia a intenção de compra; o ShopManager valida.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local gui = script.Parent
+
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local GameConfig = require(Modules:WaitForChild("GameConfig"))
+local UpgradeConfig = require(Modules:WaitForChild("UpgradeConfig"))
+local Format = require(Modules:WaitForChild("Format"))
+local UI = require(Modules:WaitForChild("UIKit"))
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+
+local C, F, new = UI.Color, UI.Font, UI.new
+local MUTED = UI.Muted
+local KMH = GameConfig.Moto.SpeedDisplayFactor
+local TOUCH = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+for _, child in ipairs(gui:GetChildren()) do
+	if child:IsA("GuiObject") then
+		child:Destroy()
+	end
+end
+
+local uiScale = gui:FindFirstChildOfClass("UIScale") or new("UIScale", { Parent = gui })
+local function updateScale()
+	uiScale.Scale = UI.ScaleFor(Workspace.CurrentCamera.ViewportSize, TOUCH)
+end
+Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
+updateScale()
+
+local window, face = UI.Panel({
+	Name = "Window",
+	Size = UDim2.fromOffset(440, 372),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Radius = 16,
+	Visible = false,
+	Parent = gui,
+})
+
+UI.IconImage("chave", 22, C.Accent, { Position = UDim2.fromOffset(22, 23), Parent = face })
+UI.Text({
+	Text = "OFICINA",
+	Font = F.Title,
+	TextSize = 22,
+	Position = UDim2.fromOffset(54, 18),
+	Size = UDim2.fromOffset(200, 32),
+	Parent = face,
+})
+local closeHolder, closeFace = UI.Panel({
+	Name = "Close",
+	Size = UDim2.fromOffset(34, 34),
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -16, 0, 16),
+	Color = C.Raised,
+	Transparency = 0,
+	Shadow = false,
+	Stroke = false,
+	Radius = 9,
+	Parent = face,
+})
+closeHolder.ZIndex = 3
+UI.IconImage("xis", 13, C.Text, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Parent = closeFace })
+local closeButton = UI.Hit(closeHolder, closeFace)
+
+local moneyLabel = UI.Text({
+	Font = F.Number,
+	TextSize = 18,
+	XAlign = Enum.TextXAlignment.Right,
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -60, 0, 22),
+	Size = UDim2.fromOffset(160, 24),
+	Parent = face,
+})
+
+local currentLabel = UI.Text({
+	Font = F.Body,
+	TextSize = 14,
+	Transparency = MUTED,
+	Position = UDim2.fromOffset(22, 62),
+	Size = UDim2.new(1, -44, 0, 20),
+	Parent = face,
+})
+local pipsRow = new("Frame", {
+	Name = "Pips",
+	BackgroundTransparency = 1,
+	Position = UDim2.fromOffset(22, 88),
+	Size = UDim2.new(1, -44, 0, 8),
+	ZIndex = 2,
+	Parent = face,
+})
+new("UIListLayout", {
+	FillDirection = Enum.FillDirection.Horizontal,
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	Padding = UDim.new(0, 6),
+	Parent = pipsRow,
+})
+local count = UpgradeConfig.MaxLevel + 1
+local pips = {}
+for level = 0, UpgradeConfig.MaxLevel do
+	local pip = new("Frame", {
+		Name = "Pip" .. level,
+		LayoutOrder = level,
+		BorderSizePixel = 0,
+		Size = UDim2.new(1 / count, -6 * (count - 1) / count, 1, 0),
+		ZIndex = 2,
+		Parent = pipsRow,
+	})
+	new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = pip })
+	pips[level] = pip
+end
+
+local nextHolder, nextFace = UI.Panel({
+	Name = "NextCard",
+	Size = UDim2.new(1, -44, 0, 136),
+	Position = UDim2.fromOffset(22, 114),
+	Color = C.Raised,
+	Transparency = 0,
+	Shadow = false,
+	Stroke = false,
+	Radius = 12,
+	Parent = face,
+})
+nextHolder.ZIndex = 2
+local nextTitle = UI.Text({
+	Font = F.Title,
+	TextSize = 13,
+	Transparency = MUTED,
+	Position = UDim2.fromOffset(18, 14),
+	Size = UDim2.new(1, -36, 0, 18),
+	Parent = nextFace,
+})
+local nextSpeed = UI.Text({
+	Font = F.Number,
+	TextSize = 40,
+	Position = UDim2.fromOffset(16, 32),
+	Size = UDim2.new(1, -32, 0, 46),
+	Parent = nextFace,
+})
+local nextGains = UI.Text({
+	Font = F.Body,
+	TextSize = 14,
+	Transparency = MUTED,
+	Position = UDim2.fromOffset(18, 80),
+	Size = UDim2.new(1, -36, 0, 18),
+	Parent = nextFace,
+})
+local costLabel = UI.Text({
+	Font = F.Number,
+	TextSize = 17,
+	Position = UDim2.fromOffset(18, 102),
+	Size = UDim2.new(1, -36, 0, 22),
+	Parent = nextFace,
+})
+
+local buyHolder, buyFace = UI.Panel({
+	Name = "Buy",
+	Size = UDim2.new(1, -44, 0, 50),
+	Position = UDim2.fromOffset(22, 266),
+	Color = C.Accent,
+	Transparency = 0,
+	Shadow = false,
+	Stroke = false,
+	Radius = 10,
+	Parent = face,
+})
+buyHolder.ZIndex = 2
+local buyText = UI.Text({
+	Font = F.Title,
+	TextSize = 17,
+	Color = C.AccentInk,
+	XAlign = Enum.TextXAlignment.Center,
+	Size = UDim2.fromScale(1, 1),
+	Parent = buyFace,
+})
+local buyButton = UI.Hit(buyHolder, buyFace)
+
+local feedbackLabel = UI.Text({
+	Font = F.Text,
+	TextSize = 14,
+	XAlign = Enum.TextXAlignment.Center,
+	Position = UDim2.fromOffset(22, 326),
+	Size = UDim2.new(1, -44, 0, 22),
+	Parent = face,
+})
+
+local busy = false
+
+local function refresh()
+	local level = player:GetAttribute("MotoLevel") or 0
+	local money = player:GetAttribute("Money") or 0
+	local current = UpgradeConfig.Get(level)
+	currentLabel.Text = string.format("Sua moto: nível %d de %d  •  %d km/h", level, UpgradeConfig.MaxLevel, current.Speed * KMH)
+	moneyLabel.Text = Format.Money(money)
+	for l, pip in pairs(pips) do
+		pip.BackgroundColor3 = l <= level and C.Accent or C.Text
+		pip.BackgroundTransparency = l <= level and 0 or 0.86
+	end
+
+	if level >= UpgradeConfig.MaxLevel then
+		nextTitle.Text = "NÍVEL MÁXIMO"
+		nextSpeed.Text = string.format("%d km/h", current.Speed * KMH)
+		nextGains.Text = "Você já tem a moto mais rápida da cidade."
+		costLabel.Text = ""
+		buyHolder.Visible = false
+		return
+	end
+
+	local nextCfg = UpgradeConfig.Get(level + 1)
+	local accelGain = math.floor((nextCfg.Acceleration / current.Acceleration - 1) * 100 + 0.5)
+	nextTitle.Text = string.format("PRÓXIMA MOTO  •  NÍVEL %d", level + 1)
+	nextSpeed.Text = string.format("%d km/h", nextCfg.Speed * KMH)
+	nextGains.Text = string.format("+%d km/h de velocidade  •  +%d%% de aceleração", (nextCfg.Speed - current.Speed) * KMH, accelGain)
+	costLabel.Text = "Custa " .. Format.Money(nextCfg.Cost)
+
+	local canAfford = money >= nextCfg.Cost
+	buyHolder.Visible = true
+	buyFace.BackgroundColor3 = canAfford and C.Accent or C.Raised
+	buyText.TextColor3 = canAfford and C.AccentInk or C.Text
+	buyText.TextTransparency = canAfford and 0 or MUTED
+	if busy then
+		buyText.Text = "..."
+	elseif canAfford then
+		buyText.Text = "COMPRAR POR " .. Format.Money(nextCfg.Cost)
+	else
+		buyText.Text = "FALTAM " .. Format.Money(nextCfg.Cost - money)
+	end
+end
+
+buyButton.Activated:Connect(function()
+	if busy then
+		return
+	end
+	local level = player:GetAttribute("MotoLevel") or 0
+	if level >= UpgradeConfig.MaxLevel then
+		return
+	end
+	if (player:GetAttribute("Money") or 0) < UpgradeConfig.Get(level + 1).Cost then
+		UI.Show(buyHolder, 0.3)
+		return
+	end
+	busy = true
+	refresh()
+	local ok, result = pcall(function()
+		return Remotes.RequestBuyUpgrade:InvokeServer(level + 1)
+	end)
+	busy = false
+	if ok and type(result) == "table" then
+		feedbackLabel.Text = UI.StripEmoji(tostring(result.Message))
+		feedbackLabel.TextColor3 = result.Success and C.Accent or C.Red
+		if result.Success then
+			UI.Show(nextHolder, 0.6)
+		end
+	else
+		feedbackLabel.Text = "Erro de conexão. Tente de novo."
+		feedbackLabel.TextColor3 = C.Red
+	end
+	refresh()
+end)
+
+closeButton.Activated:Connect(function()
+	window.Visible = false
+end)
+
+window:GetPropertyChangedSignal("Visible"):Connect(function()
+	if window.Visible and not window:GetAttribute("Hiding") then
+		feedbackLabel.Text = ""
+		refresh()
+		UI.Show(window, 0.4)
+	end
+end)
+
+player:GetAttributeChangedSignal("Money"):Connect(refresh)
+player:GetAttributeChangedSignal("MotoLevel"):Connect(refresh)
+refresh()
+]]></ProtectedString>
+					<bool name="Disabled">false</bool>
+					<Content name="LinkedSource"><null></null></Content>
+					<token name="RunContext">0</token>
+					<string name="ScriptGuid">{BB56C3C2-C8A6-4518-ACB2-9995332A94FD}</string>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+					<bool name="DefinesCapabilities">false</bool>
+					<string name="Name">ShopController</string>
+					<BinaryString name="SerializedOverrides"></BinaryString>
+					<int64 name="SourceAssetId">-1</int64>
+					<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+				</Properties>
+			</Item>
+			<Item class="UIScale" referent="RBX5146464CC3D1479F9E2E44D4BA197A3F">
+				<Properties>
+					<float name="Scale">1</float>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
+					<bool name="DefinesCapabilities">false</bool>
+					<string name="Name">UIScale</string>
+					<BinaryString name="SerializedOverrides"></BinaryString>
+					<int64 name="SourceAssetId">-1</int64>
+					<SharedString name="Tags">yuZpQdnvvUBOTYh1jqZ2cA==</SharedString>
+				</Properties>
+			</Item>
+		</Item>
+	</Item>
+	<SharedStrings>
+		<SharedString md5="yuZpQdnvvUBOTYh1jqZ2cA=="></SharedString>
+	</SharedStrings>
+</roblox>
